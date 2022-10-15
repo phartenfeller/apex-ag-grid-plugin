@@ -1,5 +1,7 @@
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 
 module.exports = {
   entry: {
@@ -10,13 +12,17 @@ module.exports = {
     rules: [
       {
         test: /\.css$/i,
-        use: ['style-loader', 'css-loader'],
+        use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
     ],
   },
+  plugins: [new MiniCssExtractPlugin(), new MiniCssExtractPlugin()],
   optimization: {
     minimize: true,
-    minimizer: [new TerserPlugin({ test: /\.min\.js$/ })],
+    minimizer: [
+      new TerserPlugin({ test: /\.min\.js$/ }),
+      new CssMinimizerPlugin({ test: /\.min\.css$/ }),
+    ],
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
