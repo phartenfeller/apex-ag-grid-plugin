@@ -104,3 +104,5 @@ dist
 .tern-port
 demo/index.js
 demo/index.js.map
+
+demo
