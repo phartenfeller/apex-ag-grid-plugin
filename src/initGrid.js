@@ -6,6 +6,4 @@ import '@ag-grid-community/core/dist/styles/ag-theme-alpine.css';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
-export default function getGrid() {
-  return Grid;
-}
+export default Grid;
