@@ -11,13 +11,15 @@ const gridOptions = {
   },
 };
 
-export default function getGridOptions(colMetaData) {
+export default function getGridOptions({ colMetaData, pkCol }) {
   const columnDefs = colMetaData.map((col) => ({
     field: col.colname,
-    editable: true,
+    editable: col.colname !== pkCol,
   }));
 
   gridOptions.columnDefs = columnDefs;
+
+  gridOptions.getRowId = (params) => params.data.pkCol;
 
   return gridOptions;
 }

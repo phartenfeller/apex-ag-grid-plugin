@@ -12,12 +12,13 @@ function _handleError(err, regionId, spinner) {
 }
 */
 
-function _initPlugin({ regionId, ajaxId, itemsToSubmit }) {
+function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol }) {
   apex.debug.info(
     `Init AG Grid plugin with params => ${JSON.stringify({
       regionId,
       ajaxId,
       itemsToSubmit,
+      pkCol,
     })}`
   );
 
@@ -25,6 +26,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit }) {
   gridElement.regionId = regionId;
   gridElement.ajaxId = ajaxId;
   gridElement.itemsToSubmit = itemsToSubmit;
+  gridElement.pkCol = pkCol;
 
   document
     .querySelector(`#${regionId}_component_wrapper`)

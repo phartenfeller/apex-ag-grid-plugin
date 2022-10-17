@@ -12,9 +12,16 @@ class AgGrid extends HTMLElement {
     this.ajaxId = this.getAttribute('ajaxId');
     this.itemsToSubmit = this.getAttribute('itemsToSubmit');
     this.regionId = this.getAttribute('regionId');
+    this.pkCol = this.getAttribute('pkCol');
   }
 
   async setupGrid() {
+    if (!this.pkCol) {
+      apex.debug.error(
+        `AG-Grid Plugin: No primary key column provided for region #${this.regionId}`
+      );
+    }
+
     const res = await ajax({
       apex,
       ajaxId: this.ajaxId,
@@ -23,7 +30,10 @@ class AgGrid extends HTMLElement {
       methods: [AJAX_COL_METADATA, AJAX_DATA],
     });
 
-    this.gridOptions = getGridOptions(res.colMetaData);
+    this.gridOptions = getGridOptions({
+      colMetaData: res.colMetaData,
+      pkCol: this.pkCol,
+    });
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
 
     this.gridOptions.api.setRowData(res.data);
