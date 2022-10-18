@@ -13,6 +13,8 @@ class AgGrid extends HTMLElement {
     this.itemsToSubmit = this.getAttribute('itemsToSubmit');
     this.regionId = this.getAttribute('regionId');
     this.pkCol = this.getAttribute('pkCol');
+
+    this.amountOfRows = 30;
   }
 
   async setupGrid() {
@@ -27,16 +29,63 @@ class AgGrid extends HTMLElement {
       ajaxId: this.ajaxId,
       itemsToSubmit: this.itemsToSubmit,
       regionId: this.regionId,
-      methods: [AJAX_COL_METADATA, AJAX_DATA],
+      methods: [AJAX_COL_METADATA],
     });
 
     this.gridOptions = getGridOptions({
       colMetaData: res.colMetaData,
       pkCol: this.pkCol,
+      amountOfRows: this.amountOfRows,
     });
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
 
-    this.gridOptions.api.setRowData(res.data);
+    const dataSource = {
+      rowCount: undefined, // behave as infinite scroll
+
+      getRows: async (params) => {
+        try {
+          console.log(`asking for ${params.startRow} to ${params.endRow}`);
+
+          const oraFirstRow = params.startRow + 1; // Oracle starts with 1
+          const oraAmountOfRows = params.endRow - params.startRow;
+
+          const dataRes = await ajax({
+            apex,
+            ajaxId: this.ajaxId,
+            itemsToSubmit: this.itemsToSubmit,
+            regionId: this.regionId,
+            methods: [AJAX_DATA],
+            firstRow: oraFirstRow,
+            amountOfRows: oraAmountOfRows,
+          });
+
+          if (dataRes.data) {
+            const nextRow = oraFirstRow + dataRes.data.length;
+            console.log(`Next row: ${nextRow}`);
+
+            params.successCallback(dataRes.data, nextRow);
+          } else {
+            apex.debug.error(
+              `Could not fetch data from region #${
+                this.regionId
+              }. Res => ${JSON.stringify(dataRes)}`
+            );
+            params.failCallback();
+          }
+        } catch (err) {
+          apex.debug.error(
+            `Error fetching data from region #${
+              this.regionId
+            }. Err => ${JSON.stringify(err)}`
+          );
+          params.failCallback();
+        }
+      },
+    };
+
+    this.gridOptions.api.setDatasource(dataSource);
+
+    // this.gridOptions.api.setRowData(res.data);
   }
 
   connectedCallback() {

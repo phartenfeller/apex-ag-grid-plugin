@@ -9,9 +9,11 @@ const gridOptions = {
   onCellClicked: (params) => {
     console.log('cell was clicked', params);
   },
+
+  rowModelType: 'infinite',
 };
 
-export default function getGridOptions({ colMetaData, pkCol }) {
+export default function getGridOptions({ colMetaData, pkCol, amountOfRows }) {
   const columnDefs = colMetaData.map((col) => ({
     field: col.colname,
     editable: col.colname !== pkCol,
@@ -20,6 +22,10 @@ export default function getGridOptions({ colMetaData, pkCol }) {
   gridOptions.columnDefs = columnDefs;
 
   gridOptions.getRowId = (params) => params.data.pkCol;
+
+  gridOptions.infiniteInitialRowCount = amountOfRows;
+  gridOptions.cacheBlockSize = amountOfRows;
+  gridOptions.cacheOverflowSize = 1;
 
   return gridOptions;
 }

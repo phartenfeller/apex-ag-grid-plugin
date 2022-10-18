@@ -3,7 +3,15 @@ import { hideSpinner, showSpinner } from './spinner';
 export const AJAX_COL_METADATA = 'colMetadata';
 export const AJAX_DATA = 'data';
 
-export function ajax({ apex, ajaxId, itemsToSubmit, regionId, methods = [] }) {
+export function ajax({
+  apex,
+  ajaxId,
+  itemsToSubmit,
+  regionId,
+  methods = [],
+  firstRow = null,
+  amountOfRows = 30,
+}) {
   return new Promise((resolve, reject) => {
     if (methods?.length === 0) {
       const msg = 'No methods provided to fetch data from';
@@ -18,6 +26,8 @@ export function ajax({ apex, ajaxId, itemsToSubmit, regionId, methods = [] }) {
       {
         pageItems: itemsToSubmit,
         x01: methods.join(':'),
+        x02: firstRow,
+        x03: amountOfRows,
       },
       {
         success(data) {
