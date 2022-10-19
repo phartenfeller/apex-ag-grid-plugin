@@ -4,7 +4,7 @@
     "browser": true
   },
   "parserOptions": {
-    "ecmaVersion": 11,
+    "ecmaVersion": "latest",
     "sourceType": "module"
   },
   "rules": {

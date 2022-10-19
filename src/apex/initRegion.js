@@ -23,6 +23,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol }) {
   );
 
   const gridElement = document.createElement('p-ag-grid');
+  gridElement.id = `${regionId}-component`;
   gridElement.regionId = regionId;
   gridElement.ajaxId = ajaxId;
   gridElement.itemsToSubmit = itemsToSubmit;
@@ -56,6 +57,9 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol }) {
       // } catch (err) {
       //   _handleError(err, regionId, spinner);
       // }
+    },
+    save: () => {
+      gridElement.save();
     },
   });
 }

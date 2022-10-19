@@ -1,9 +1,23 @@
 import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
-import getGridOptions from './getGridOptions';
 import AG_GRID from './initGrid';
 
 const { apex } = window;
+
+const gridOptions = {
+  // default col def properties get applied to all columns
+  defaultColDef: { sortable: true, filter: true },
+
+  rowSelection: 'multiple', // allow rows to be selected
+  animateRows: true, // have rows animate to new positions when sorted
+
+  // example event handler
+  onCellClicked: (params) => {
+    console.log('cell was clicked', params);
+  },
+
+  rowModelType: 'infinite',
+};
 
 class AgGrid extends HTMLElement {
   constructor() {
@@ -15,9 +29,46 @@ class AgGrid extends HTMLElement {
     this.pkCol = this.getAttribute('pkCol');
 
     this.amountOfRows = 30;
+
+    this.changes = new Map();
   }
 
-  async setupGrid() {
+  #handleChange(event, instance) {
+    const oldData = event.data;
+    const { field } = event.colDef;
+    const { newValue } = event;
+    const newData = { ...oldData };
+    newData[field] = event.newValue;
+
+    console.log(
+      `onCellEditRequest, updating ${field} to ${newValue} - event => `,
+      event
+    );
+
+    const pkVal = newData[this.pkCol];
+    instance.changes.set(pkVal, newData);
+  }
+
+  #getGridOptions({ colMetaData }) {
+    const columnDefs = colMetaData.map((col) => ({
+      field: col.colname,
+      editable: col.colname !== this.pkCol,
+    }));
+
+    gridOptions.columnDefs = columnDefs;
+
+    gridOptions.getRowId = (params) => params.data.pkCol;
+
+    gridOptions.infiniteInitialRowCount = this.amountOfRows;
+    gridOptions.cacheBlockSize = this.amountOfRows;
+    gridOptions.cacheOverflowSize = 1;
+
+    gridOptions.onCellValueChanged = (e) => this.#handleChange(e, this);
+
+    return gridOptions;
+  }
+
+  async #setupGrid() {
     if (!this.pkCol) {
       apex.debug.error(
         `AG-Grid Plugin: No primary key column provided for region #${this.regionId}`
@@ -32,10 +83,8 @@ class AgGrid extends HTMLElement {
       methods: [AJAX_COL_METADATA],
     });
 
-    this.gridOptions = getGridOptions({
+    this.gridOptions = this.#getGridOptions({
       colMetaData: res.colMetaData,
-      pkCol: this.pkCol,
-      amountOfRows: this.amountOfRows,
     });
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
 
@@ -88,6 +137,24 @@ class AgGrid extends HTMLElement {
     // this.gridOptions.api.setRowData(res.data);
   }
 
+  async save() {
+    const data = Array.from(this.changes.values());
+    console.log('Saving data', data);
+
+    /*
+    const res = await ajax({
+      apex,
+      ajaxId: this.ajaxId,
+      itemsToSubmit: this.itemsToSubmit,
+      regionId: this.regionId,
+      methods: ['save'],
+      data,
+    });
+
+    console.log('Save response', res);
+    */
+  }
+
   connectedCallback() {
     this.gridNode = document.createElement('div');
     this.gridNode.classList.add('ag-theme-alpine');
@@ -95,7 +162,7 @@ class AgGrid extends HTMLElement {
 
     this.appendChild(this.gridNode);
 
-    this.setupGrid();
+    this.#setupGrid();
   }
 }
 
