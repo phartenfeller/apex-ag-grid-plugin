@@ -58,9 +58,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol }) {
       //   _handleError(err, regionId, spinner);
       // }
     },
-    save: () => {
-      gridElement.save();
-    },
+    getSaveData: () => gridElement.getSaveData(),
   });
 }
 

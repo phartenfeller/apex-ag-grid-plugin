@@ -137,9 +137,14 @@ class AgGrid extends HTMLElement {
     // this.gridOptions.api.setRowData(res.data);
   }
 
-  async save() {
+  getSaveData() {
     const data = Array.from(this.changes.values());
-    console.log('Saving data', data);
+    const pkIds = data.map((row) => row[this.pkCol]);
+    const dataMap = {};
+    data.forEach((row) => {
+      dataMap[row[this.pkCol]] = row;
+    });
+    console.log('Saving data', dataMap);
 
     /*
     const res = await ajax({
@@ -153,6 +158,8 @@ class AgGrid extends HTMLElement {
 
     console.log('Save response', res);
     */
+
+    return { data: dataMap, pkCol: this.pkCol, pkIds };
   }
 
   connectedCallback() {
