@@ -152,7 +152,7 @@ begin
         commit; -- needed now in APEX 21.1
 
 
-    l_filter_sql := 'to_char(#PK_COL#) member of ( apex_string.split(#PK_VALS#, '':'')  )';
+    l_filter_sql := 'to_char(#PK_COL#) member of ( apex_string.split(''#PK_VALS#'', '':'')  )';
     l_filter_sql := replace(l_filter_sql, '#PK_COL#', APEX_APPLICATION.g_x01);
     l_filter_sql := replace(l_filter_sql, '#PK_VALS#', APEX_APPLICATION.g_x02);
 
@@ -174,6 +174,8 @@ begin
     begin
         while apex_exec.next_row(l_context)
         loop
+            l_parameters := apex_exec.t_parameters();
+
             apex_exec.ADD_PARAMETER (
                   p_parameters => l_parameters
                 , p_name => 'APEX$ROW_STATUS'
@@ -196,12 +198,14 @@ begin
 
 
                 if  l_current_column.data_type = apex_exec.c_data_type_number then
+                    apex_debug.message('value: %s', apex_json.get_number( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name ));
                     apex_exec.ADD_PARAMETER (
                         p_parameters => l_parameters
                         , p_name => l_current_column.name
                         , p_value => apex_json.get_number( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name )  --apex_exec.get_number( p_context => l_context, p_column_idx => idx )
                     );
                 else
+                    apex_debug.message('value: %s', apex_json.get_varchar2( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name ));
                     apex_exec.ADD_PARAMETER (
                         p_parameters => l_parameters
                         , p_name => l_current_column.name
@@ -211,7 +215,7 @@ begin
              end loop;
 
 
-            apex_exec.execute_plsql(p_plsql_code => l_dml_code, p_sql_parameters => l_parameters);
+            apex_exec.execute_plsql(p_plsql_code => l_dml_code, p_sql_parameters => l_parameters, p_auto_bind_items => false);
         end loop;
     exception
       when others then
