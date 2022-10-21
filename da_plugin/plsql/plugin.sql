@@ -32,6 +32,31 @@ begin
     return l_return;
 end;
 
+function get_used_binds (
+    pi_code in varchar2
+) return apex_t_varchar2
+as
+  c_bind_pattern constant varchar2(200) := ':([abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890\$#\_\-]*)';
+  l_binds        apex_t_varchar2;
+  l_return       apex_t_varchar2 := apex_t_varchar2();
+begin
+  l_binds := apex_string.grep( 
+    p_str => pi_code
+  , p_pattern =>  c_bind_pattern
+  , p_modifier => 'i'
+  , p_subexpression => '1'
+  );
+
+  for i in 1 .. l_binds.count
+  loop
+    if not upper(l_binds(i)) member of (l_return) then 
+      apex_string.push( l_return, upper( l_binds(i) ) );
+    end if;
+  end loop;
+
+  return l_return;
+end get_used_binds;
+
 function get_json_clob
     return clob
 as
@@ -58,11 +83,10 @@ as
     --l_success_message   p_dynamic_action.attribute_05%type := p_dynamic_action.attribute_05;
     --l_error_message     p_dynamic_action.attribute_06%type := p_dynamic_action.attribute_06;
 
-    l_filter_sql varchar2(4000);
+    l_used_binds apex_t_varchar2 := get_used_binds(pi_code => l_dml_code);
+
 
     l_context           apex_exec.t_context;
-    l_current_column    apex_exec.t_column;
-    l_filters           apex_exec.t_filters;
     l_parameters        apex_exec.t_parameters;
 
     --needed for the selection filter
@@ -71,11 +95,24 @@ as
 
     l_json_clob clob;
     l_values    apex_json.t_values;
-    l_pk_idx    pls_integer;
-    l_pk_val    varchar2(4000);
 
-    l_test_val_num number;
-    l_test_val_str varchar2(4000);
+    l_pk_vals apex_t_varchar2 := apex_string.split(APEX_APPLICATION.g_x02, ':');
+
+    l_json_path varchar2(4000);
+
+  type t_col_info is record (
+    name       APEX_APPLICATION_PAGE_REG_COLS.name%type
+  , data_type  APEX_APPLICATION_PAGE_REG_COLS.data_type%type
+  );
+
+  type tt_col_info is table of t_col_info;
+
+  l_col_info tt_col_info;
+  l_has_default_id boolean;
+
+  c_type_number constant varchar2(100) := 'NUMBER';
+  c_row_status_bind constant varchar2(100) := 'APEX$ROW_STATUS';
+  c_rowid_bind constant varchar2(100) := 'ROWID';
 
     --------------------------------------------------------------------------------
     -- dumps ajax parameters to debug output
@@ -118,6 +155,8 @@ begin
           , p_dynamic_action => p_dynamic_action
           );
         log_ajax_parameters;
+
+        apex_debug.message('Used binds: %s', apex_string.join(l_used_binds, ', ') );
     end if;
 
     l_json_clob := get_json_clob();
@@ -127,112 +166,95 @@ begin
     , p_source => l_json_clob
     );
 
+  l_has_default_id :=  true; --regexp_substr(l_affected_region_id, 'R[0-9]+$') = l_affected_region_id;
+  apex_debug.message('Affected region ID: %s', l_affected_region_id );
 
-        l_context := apex_region.open_query_context
-                       ( p_page_id      => V('APP_PAGE_ID')
-                       , p_region_id    => l_affected_region_id
-                       , p_max_rows     => 0
-                       );
+  if l_has_default_id then
+    select c.name
+         , c.data_type
+      bulk collect into l_col_info
+      from APEX_APPLICATION_PAGE_REGIONS r 
+      join APEX_APPLICATION_PAGE_REG_COLS c
+        on r.region_id = c.region_id
+     where r.application_id = v('APP_ID')
+       and r.page_id = v('APP_PAGE_ID')
+       and r.region_id = l_affected_region_id --to_number(replace(l_affected_region_id, 'R', ''))
+       and c.name member of (l_used_binds)
+     order by c.display_sequence
+    ;
+  else 
+    select c.name
+         , c.data_type
+      bulk collect into l_col_info
+      from APEX_APPLICATION_PAGE_REGIONS r 
+      join APEX_APPLICATION_PAGE_REG_COLS c
+        on r.region_id = c.region_id
+     where r.application_id = v('APP_ID')
+       and r.page_id = v('APP_PAGE_ID')
+       and r.static_id = l_affected_region_id
+       and c.name member of (l_used_binds)
+     order by c.display_sequence
+    ;
+  end if;
 
-        for idx in 1 .. apex_exec.get_column_count(l_context)
-        loop
-            l_current_column := apex_exec.get_column
-                                  ( p_context     => l_context
-                                  , p_column_idx  => idx
-                                  );
-
-            if l_current_column.name = APEX_APPLICATION.g_x01 then
-                l_pk_idx := idx;
-            end if;
-
-            exit when l_pk_idx is not null;
-        end loop;
-
-        apex_exec.close(l_context);
-        commit; -- needed now in APEX 21.1
-
-
-    l_filter_sql := 'to_char(#PK_COL#) member of ( apex_string.split(''#PK_VALS#'', '':'')  )';
-    l_filter_sql := replace(l_filter_sql, '#PK_COL#', APEX_APPLICATION.g_x01);
-    l_filter_sql := replace(l_filter_sql, '#PK_VALS#', APEX_APPLICATION.g_x02);
-
-    apex_debug.info('l_filter_sql: %s', l_filter_sql);
-
-    apex_exec.add_filter
-    ( p_filters         => l_filters
-    , p_sql_expression  => l_filter_sql
-    );
-
-    l_context := apex_region.open_query_context
-               ( p_page_id             => v('APP_PAGE_ID')
-               , p_region_id           => l_affected_region_id
-               , p_additional_filters  => l_filters
-               --, p_max_rows     => 0
-               --, p_component_id => l_report_id    
-               );
 
     begin
-        while apex_exec.next_row(l_context)
-        loop
-            l_parameters := apex_exec.t_parameters();
+      -- loop over every changed row
+      for i in 1 .. l_pk_vals.count loop
+        apex_debug.message('process row (%s), PK: %s', i, l_pk_vals(i));
 
+        -- clean parameter array every time
+        l_parameters := apex_exec.t_parameters();
+
+        -- add row status bind if used
+        if c_row_status_bind member of (l_used_binds) then
+          apex_exec.ADD_PARAMETER (
+                p_parameters => l_parameters
+              , p_name => c_row_status_bind
+              , p_value => 'U'
+          );
+        end if;
+
+        if c_rowid_bind member of (l_used_binds) then
+          l_json_path := apex_string.format('regions[1].data.%0.%1', l_pk_vals(i), c_rowid_bind);
+
+          apex_debug.message('ROWID: %s', apex_json.get_varchar2( p_values => l_values, p_path => l_json_path ));
+          apex_exec.ADD_PARAMETER (
+                p_parameters => l_parameters
+              , p_name => c_rowid_bind
+              , p_value => apex_json.get_varchar2( p_values => l_values, p_path => l_json_path )
+          );
+        end if;
+
+        for j in 1 .. l_col_info.count loop
+          apex_debug.message('Column (%s): %s (%s)', j, l_col_info(j).name, l_col_info(j).data_type);
+          l_json_path := apex_string.format('regions[1].data.%0.%1', l_pk_vals(i), l_col_info(j).name);
+
+          if  l_col_info(j).data_type = c_type_number then
+            apex_debug.message('value: %s (%s)', apex_json.get_number( p_values => l_values, p_path => l_json_path ), l_json_path);
             apex_exec.ADD_PARAMETER (
-                  p_parameters => l_parameters
-                , p_name => 'APEX$ROW_STATUS'
-                , p_value => 'U'
+                p_parameters => l_parameters
+                , p_name => l_col_info(j).name
+                , p_value => apex_json.get_number( p_values => l_values, p_path => l_json_path )
             );
-
-            l_pk_val := apex_exec.get_varchar2( p_context => l_context, p_column_idx => l_pk_idx );
-
-            apex_debug.info('curr row  pk: %s', l_pk_val);
-
-            for idx in 1 .. apex_exec.get_column_count(l_context)
-            loop
-
-                l_current_column := apex_exec.get_column
-                                    ( p_context     => l_context
-                                    , p_column_idx  => idx
-                                    );
-
-                apex_debug.message('column (%s): %s', idx, l_current_column.name);
-
-
-                if  l_current_column.data_type = apex_exec.c_data_type_number then
-                    apex_debug.message('value: %s', apex_json.get_number( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name ));
-                    apex_exec.ADD_PARAMETER (
-                        p_parameters => l_parameters
-                        , p_name => l_current_column.name
-                        , p_value => apex_json.get_number( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name )  --apex_exec.get_number( p_context => l_context, p_column_idx => idx )
-                    );
-                else
-                    apex_debug.message('value: %s', apex_json.get_varchar2( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name ));
-                    apex_exec.ADD_PARAMETER (
-                        p_parameters => l_parameters
-                        , p_name => l_current_column.name
-                        , p_value =>  apex_json.get_varchar2( p_values => l_values, p_path => 'regions[1].data.%s.%s', p0 => l_pk_val, p1 => l_current_column.name ) --apex_exec.get_varchar2( p_context => l_context, p_column_idx => idx ) 
-                    );
-                end if;
-             end loop;
-
-
-            apex_exec.execute_plsql(p_plsql_code => l_dml_code, p_sql_parameters => l_parameters, p_auto_bind_items => false);
+          else
+            apex_debug.message('value: %s (%s)', apex_json.get_varchar2( p_values => l_values, p_path => l_json_path ), l_json_path);
+            apex_exec.ADD_PARAMETER (
+                p_parameters => l_parameters
+                , p_name => l_col_info(j).name
+                , p_value =>  apex_json.get_varchar2( p_values => l_values, p_path => l_json_path )
+            );
+          end if;
         end loop;
+
+        -- run plsql
+        apex_exec.execute_plsql(p_plsql_code => l_dml_code, p_sql_parameters => l_parameters, p_auto_bind_items => false);
+      end loop;
     exception
       when others then
         apex_debug.error('Error in loop: %s', sqlerrm);
         raise;
     end;
-
-    for idx in 1 .. apex_exec.get_column_count(l_context)
-    loop
-
-            l_current_column := apex_exec.get_column
-                                  ( p_context     => l_context
-                                  , p_column_idx  => idx
-                                  );
-
-            apex_debug.message('column (%s): %s', idx, l_current_column.name);
-    end loop;
 
     apex_json.open_object;
     apex_json.write('success', true);
