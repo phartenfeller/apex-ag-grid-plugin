@@ -4,17 +4,16 @@ import AG_GRID from './initGrid';
 
 const { apex } = window;
 
+const IDX_COL = '__idx';
+
 const gridOptions = {
   // default col def properties get applied to all columns
-  defaultColDef: { sortable: true, filter: true },
+  defaultColDef: { sortable: true, filter: true, flex: 1, minWidth: 100 },
 
   rowSelection: 'multiple', // allow rows to be selected
-  animateRows: true, // have rows animate to new positions when sorted
+  suppressRowClickSelection: true,
 
-  // example event handler
-  onCellClicked: (params) => {
-    console.log('cell was clicked', params);
-  },
+  animateRows: true, // have rows animate to new positions when sorted
 
   rowModelType: 'infinite',
 };
@@ -45,19 +44,31 @@ class AgGrid extends HTMLElement {
       event
     );
 
-    const pkVal = newData[this.pkCol];
+    const pkVal = newData[IDX_COL];
     instance.changes.set(pkVal, newData);
   }
 
   #getGridOptions({ colMetaData }) {
-    const columnDefs = colMetaData.map((col) => ({
-      field: col.colname,
-      editable: col.colname !== this.pkCol,
-    }));
+    const columnDefs = [
+      {
+        field: IDX_COL,
+        editable: false,
+        checkboxSelection: true,
+        headerName: '',
+        valueFormatter: () => '', // don't show any value in the column
+      },
+    ];
+
+    colMetaData.forEach((col) =>
+      columnDefs.push({
+        field: col.colname,
+        //  editable: col.colname !== this.pkCol,
+      })
+    );
 
     gridOptions.columnDefs = columnDefs;
 
-    gridOptions.getRowId = (params) => params.data.pkCol;
+    gridOptions.getRowId = (params) => params.data[IDX_COL];
 
     gridOptions.infiniteInitialRowCount = this.amountOfRows;
     gridOptions.cacheBlockSize = this.amountOfRows;
@@ -109,10 +120,15 @@ class AgGrid extends HTMLElement {
           });
 
           if (dataRes.data) {
-            const nextRow = oraFirstRow + dataRes.data.length;
+            const { data } = dataRes;
+            for (let i = 0; i < data.length; i++) {
+              data[i][IDX_COL] = data[i][this.pkCol];
+            }
+
+            const nextRow = oraFirstRow + data.length;
             console.log(`Next row: ${nextRow}`);
 
-            params.successCallback(dataRes.data, nextRow);
+            params.successCallback(data, nextRow);
           } else {
             apex.debug.error(
               `Could not fetch data from region #${
@@ -139,10 +155,10 @@ class AgGrid extends HTMLElement {
 
   getSaveData() {
     const data = Array.from(this.changes.values());
-    const pkIds = data.map((row) => row[this.pkCol]);
+    const pkIds = data.map((row) => row[IDX_COL]);
     const dataMap = {};
     data.forEach((row) => {
-      dataMap[row[this.pkCol]] = row;
+      dataMap[row[IDX_COL]] = row;
     });
     console.log('Saving data', dataMap);
 
