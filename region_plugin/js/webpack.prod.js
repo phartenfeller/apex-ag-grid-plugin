@@ -3,10 +3,12 @@ const TerserPlugin = require('terser-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 
+const entry = path.resolve(__dirname, 'src', 'index.js');
+
 module.exports = {
   entry: {
-    index: path.resolve(__dirname, 'src', 'index.js'),
-    'index.min': path.resolve(__dirname, 'src', 'index.js'),
+    index: entry,
+    'index.min': entry,
   },
   module: {
     rules: [
