@@ -3,6 +3,7 @@ import './apex/initRegion';
 import AG_GRID from './initGrid';
 
 const { apex } = window;
+const $ = apex.jQuery;
 
 const IDX_COL = '__idx';
 
@@ -27,9 +28,12 @@ class AgGrid extends HTMLElement {
     this.regionId = this.getAttribute('regionId');
     this.pkCol = this.getAttribute('pkCol');
 
+    this.contextMenuId = `${this.regionId}-context-menu`;
+
     this.amountOfRows = 30;
 
     this.changes = new Map();
+    this.deletedIds = new Set();
   }
 
   #handleChange(event, instance) {
@@ -178,14 +182,66 @@ class AgGrid extends HTMLElement {
     return { data: dataMap, pkCol: this.pkCol, pkIds };
   }
 
+  #markRowDeleted(rowId) {
+    this.deletedIds.add(rowId);
+    $(`#${this.regionId} div[row-id="${rowId}"]`).addClass(
+      'marked-for-deletion'
+    );
+  }
+
+  #setupContextMenu() {
+    let currRowdId = null;
+    const $contextMenu = $(`#${this.contextMenuId}`);
+
+    const menuList = [
+      {
+        type: 'action',
+        label: 'Delete row',
+        icon: 'fa fa-trash',
+        action: () => {
+          this.#markRowDeleted(currRowdId);
+        },
+      },
+      {
+        type: 'action',
+        label: 'Show Confirm',
+        action() {
+          apex.message.confirm('Are you sure?');
+        },
+      },
+    ];
+
+    $contextMenu.menu({
+      iconType: 'fa',
+      items: menuList,
+    });
+
+    $(`#${this.regionId}`).on('contextmenu', '.ag-row', (e) => {
+      e.preventDefault();
+      currRowdId = e.currentTarget.getAttribute('row-id');
+      console.log('Row id', currRowdId);
+      $contextMenu.menu('toggle', e.pageX, e.pageY);
+    });
+  }
+
   connectedCallback() {
+    const wrapperNode = document.createElement('div');
+
     this.gridNode = document.createElement('div');
     this.gridNode.classList.add('ag-theme-alpine');
     this.gridNode.style.height = '500px';
 
-    this.appendChild(this.gridNode);
+    const contextMenuNode = document.createElement('div');
+    contextMenuNode.id = this.contextMenuId;
+
+    wrapperNode.appendChild(this.gridNode);
+    wrapperNode.appendChild(contextMenuNode);
+
+    this.appendChild(wrapperNode);
 
     this.#setupGrid();
+
+    this.#setupContextMenu();
   }
 }
 

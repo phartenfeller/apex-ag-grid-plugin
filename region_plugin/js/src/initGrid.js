@@ -4,6 +4,7 @@ import { InfiniteRowModelModule } from '@ag-grid-community/infinite-row-model';
 
 import '@ag-grid-community/core/dist/styles/ag-grid.css';
 import '@ag-grid-community/core/dist/styles/ag-theme-alpine.css';
+import './css/custom-styles.css';
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,

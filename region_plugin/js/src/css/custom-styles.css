@@ -1,0 +1,4 @@
+.ag-row.marked-for-deletion .ag-cell {
+  text-decoration: line-through;
+  background-color: var(--a-gv-deleted-background-color, #f9f9f9);
+}
