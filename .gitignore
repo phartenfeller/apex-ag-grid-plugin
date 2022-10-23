@@ -108,3 +108,4 @@ demo/index.js
 demo/index.js.map
 
 demo
+.build-oracle.json

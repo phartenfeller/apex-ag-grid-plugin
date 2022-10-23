@@ -17,6 +17,15 @@ const gridOptions = {
   animateRows: true, // have rows animate to new positions when sorted
 
   rowModelType: 'infinite',
+
+  columnTypes: {
+    nonEdit: { editable: false, cellClass: ['xag-read-only-cell'] },
+    headerLeft: { headerClass: ['ag-left-aligned-header'] },
+    headerRight: { headerClass: ['ag-right-aligned-header'] },
+    contentLeft: { cellClass: ['ag-left-aligned-cell'] },
+    contentRight: { cellClass: ['ag-right-aligned-cell'] },
+    contentCenter: { cellClass: ['xag-center-aligned-cell'] },
+  },
 };
 
 class AgGrid extends HTMLElement {
@@ -36,6 +45,7 @@ class AgGrid extends HTMLElement {
     this.deletedIds = new Set();
   }
 
+  // eslint-disable-next-line class-methods-use-this
   #handleChange(event, instance) {
     const oldData = event.data;
     const { field } = event.colDef;
@@ -43,7 +53,7 @@ class AgGrid extends HTMLElement {
     const newData = { ...oldData };
     newData[field] = event.newValue;
 
-    console.log(
+    apex.debug.info(
       `onCellEditRequest, updating ${field} to ${newValue} - event => `,
       event
     );
@@ -63,12 +73,41 @@ class AgGrid extends HTMLElement {
       },
     ];
 
-    colMetaData.forEach((col) =>
-      columnDefs.push({
+    colMetaData.forEach((col) => {
+      const types = [];
+
+      if (!col.editable) types.push('nonEdit');
+
+      if (col.heading_alignment === 'RIGHT') {
+        types.push('headerRight');
+      } else {
+        types.push('headerLeft');
+      }
+
+      if (col.value_alignment === 'CENTER') {
+        types.push('contentCenter');
+      } else if (col.value_alignment === 'RIGHT') {
+        types.push('contentRight');
+      } else {
+        types.push('contentLeft');
+      }
+
+      const colDef = {
+        colId: col.colname,
         field: col.colname,
-        //  editable: col.colname !== this.pkCol,
-      })
-    );
+        headerName: col.heading ?? col.colname,
+        editable: col.editable,
+        hide: !col.is_visible,
+        type: types,
+      };
+
+      if (col.number_format) {
+        colDef.valueFormatter = (params) =>
+          apex.locale.formatNumber(params.value, col.number_format);
+      }
+
+      columnDefs.push(colDef);
+    });
 
     gridOptions.columnDefs = columnDefs;
 
@@ -108,7 +147,7 @@ class AgGrid extends HTMLElement {
 
       getRows: async (params) => {
         try {
-          console.log(`asking for ${params.startRow} to ${params.endRow}`);
+          apex.debug.info(`asking for ${params.startRow} to ${params.endRow}`);
 
           const oraFirstRow = params.startRow + 1; // Oracle starts with 1
           const oraAmountOfRows = params.endRow - params.startRow;
@@ -130,8 +169,6 @@ class AgGrid extends HTMLElement {
             }
 
             const nextRow = oraFirstRow + data.length;
-            console.log(`Next row: ${nextRow}`);
-
             params.successCallback(data, nextRow);
           } else {
             apex.debug.error(
@@ -164,20 +201,7 @@ class AgGrid extends HTMLElement {
     data.forEach((row) => {
       dataMap[row[IDX_COL]] = row;
     });
-    console.log('Saving data', dataMap);
-
-    /*
-    const res = await ajax({
-      apex,
-      ajaxId: this.ajaxId,
-      itemsToSubmit: this.itemsToSubmit,
-      regionId: this.regionId,
-      methods: ['save'],
-      data,
-    });
-
-    console.log('Save response', res);
-    */
+    apex.debug.info('Saving data', dataMap);
 
     return { data: dataMap, pkCol: this.pkCol, pkIds };
   }
@@ -219,7 +243,7 @@ class AgGrid extends HTMLElement {
     $(`#${this.regionId}`).on('contextmenu', '.ag-row', (e) => {
       e.preventDefault();
       currRowdId = e.currentTarget.getAttribute('row-id');
-      console.log('Row id', currRowdId);
+      apex.debug.info('Row id', currRowdId);
       $contextMenu.menu('toggle', e.pageX, e.pageY);
     });
   }

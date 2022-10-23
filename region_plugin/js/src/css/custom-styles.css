@@ -2,3 +2,12 @@
   text-decoration: line-through;
   background-color: var(--a-gv-deleted-background-color, #f9f9f9);
 }
+
+.xag-read-only-cell {
+  background-color: #f2f2f2;
+  color: var(--ut-component-text-muted-color, rgba(0, 0, 0, 0.65));
+}
+
+.xag-center-aligned-cell {
+  text-align: center;
+}
