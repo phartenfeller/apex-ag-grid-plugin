@@ -7,6 +7,7 @@ const { apex } = window;
 const $ = apex.jQuery;
 
 const IDX_COL = '__idx';
+const ROW_ACITON = '__row_action';
 
 /** @type {import('@ag-grid-community/all-modules').GridOptions} */
 const gridOptions = {
@@ -45,7 +46,6 @@ class AgGrid extends HTMLElement {
     this.amountOfRows = 30;
 
     this.changes = new Map();
-    this.deletedIds = new Set();
 
     this.markedChanges = false;
   }
@@ -78,6 +78,12 @@ class AgGrid extends HTMLElement {
     );
 
     const pkVal = newData[IDX_COL];
+
+    // don't override insert or delete
+    if (!instance.changes.has(pkVal)) {
+      newData[ROW_ACITON] = 'U';
+    }
+
     instance.changes.set(pkVal, newData);
 
     instance.markChanges();
@@ -243,7 +249,23 @@ class AgGrid extends HTMLElement {
   }
 
   #markRowDeleted(rowId) {
-    this.deletedIds.add(rowId);
+    apex.debug.info(`Marking row ${rowId} as deleted`);
+
+    if (this.changes.has(rowId)) {
+      const row = this.changes.get(rowId);
+      row[ROW_ACITON] = 'D';
+    } else {
+      const rowNode = this.gridOptions.api.getRowNode(rowId);
+      if (!rowNode) {
+        apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
+        return;
+      }
+
+      const { data } = rowNode;
+      data[ROW_ACITON] = 'D';
+      this.changes.set(rowId, data);
+    }
+
     $(`#${this.regionId} div[row-id="${rowId}"]`).addClass(
       'marked-for-deletion'
     );
