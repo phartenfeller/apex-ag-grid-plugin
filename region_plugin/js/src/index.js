@@ -80,7 +80,9 @@ class AgGrid extends HTMLElement {
     const pkVal = newData[IDX_COL];
 
     // don't override insert or delete
-    if (!instance.changes.has(pkVal)) {
+    if (instance.changes.has(pkVal)) {
+      newData[ROW_ACITON] = instance.changes.get(pkVal)[ROW_ACITON];
+    } else {
       newData[ROW_ACITON] = 'U';
     }
 
