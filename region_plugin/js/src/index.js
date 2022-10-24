@@ -2,11 +2,13 @@ import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
 import AG_GRID from './initGrid';
 
+/** @type any */
 const { apex } = window;
 const $ = apex.jQuery;
 
 const IDX_COL = '__idx';
 
+/** @type {import('@ag-grid-community/all-modules').GridOptions} */
 const gridOptions = {
   // default col def properties get applied to all columns
   defaultColDef: { sortable: true, filter: true, flex: 1, minWidth: 100 },
@@ -36,6 +38,7 @@ class AgGrid extends HTMLElement {
     this.itemsToSubmit = this.getAttribute('itemsToSubmit');
     this.regionId = this.getAttribute('regionId');
     this.pkCol = this.getAttribute('pkCol');
+    this.focusOnLoad = this.getAttribute('focusOnLoad') === 'true';
 
     this.contextMenuId = `${this.regionId}-context-menu`;
 
@@ -43,6 +46,22 @@ class AgGrid extends HTMLElement {
 
     this.changes = new Map();
     this.deletedIds = new Set();
+
+    this.markedChanges = false;
+  }
+
+  hasChanges() {
+    return this.changes.size > 0;
+  }
+
+  markChanges() {
+    if (!this.markedChanges) {
+      apex.page.warnOnUnsavedChanges(
+        'There are unsaved changes',
+        this.hasChanges()
+      );
+      this.markedChanges = true;
+    }
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -60,9 +79,12 @@ class AgGrid extends HTMLElement {
 
     const pkVal = newData[IDX_COL];
     instance.changes.set(pkVal, newData);
+
+    instance.markChanges();
   }
 
   #getGridOptions({ colMetaData }) {
+    /** @type {import('@ag-grid-community/all-modules').ColDef[]} */
     const columnDefs = [
       {
         field: IDX_COL,
@@ -92,6 +114,7 @@ class AgGrid extends HTMLElement {
         types.push('contentLeft');
       }
 
+      /** @type {import('@ag-grid-community/all-modules').ColDef} */
       const colDef = {
         colId: col.colname,
         field: col.colname,
@@ -169,6 +192,13 @@ class AgGrid extends HTMLElement {
             }
 
             const nextRow = oraFirstRow + data.length;
+
+            if (this.focusOnLoad && params.startRow === 0) {
+              setTimeout(() => {
+                this.focus();
+              }, 100);
+            }
+
             params.successCallback(data, nextRow);
           } else {
             apex.debug.error(
@@ -194,6 +224,12 @@ class AgGrid extends HTMLElement {
     // this.gridOptions.api.setRowData(res.data);
   }
 
+  focus() {
+    const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
+    this.gridOptions.api.ensureColumnVisible(firstEditCol);
+    this.gridOptions.api.setFocusedCell(0, firstEditCol);
+  }
+
   getSaveData() {
     const data = Array.from(this.changes.values());
     const pkIds = data.map((row) => row[IDX_COL]);
@@ -211,6 +247,8 @@ class AgGrid extends HTMLElement {
     $(`#${this.regionId} div[row-id="${rowId}"]`).addClass(
       'marked-for-deletion'
     );
+
+    this.markChanges();
   }
 
   #setupContextMenu() {

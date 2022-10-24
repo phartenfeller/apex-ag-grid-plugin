@@ -1,7 +1,22 @@
 /* global apex */
 
+let spinner;
+
+export function showSpinner({ apex, regionId }) {
+  spinner = apex.util.showSpinner(apex.jQuery(`#${regionId}`));
+}
+
+export function hideSpinner() {
+  if (spinner) {
+    spinner.remove();
+    spinner = null;
+  }
+}
+
 function _saveGrid({ regionId, ajaxId }) {
   const { data, pkCol, pkIds } = apex.region(regionId).getSaveData();
+
+  showSpinner({ apex, regionId });
 
   apex.server.plugin(
     ajaxId,
@@ -16,17 +31,15 @@ function _saveGrid({ regionId, ajaxId }) {
       x02: pkIds.join(':'),
     },
     {
-      success(res) {
-        //  hideSpinner();
-        console.log('Success: ', res);
-        //  resolve(data);
+      success() {
+        hideSpinner();
+        apex.message.showPageSuccess('Changes saved!');
       },
       error(err) {
-        //    hideSpinner();
+        hideSpinner();
         apex.debug.error(
           `Error in AG Grid Plugin (#${regionId}): ${JSON.stringify(err)}`
         );
-        // reject(err);
       },
       dataType: 'json',
     }

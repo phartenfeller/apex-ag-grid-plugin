@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "target": "ES2020",
+    "moduleResolution": "Node"
+  },
+  "exclude": [
+    "node_modules",
+    "**/node_modules/*",
+    "**/*.test.js",
+    "**/dist/*.js"
+  ]
+}

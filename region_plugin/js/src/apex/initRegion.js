@@ -1,3 +1,4 @@
+/** @type any */
 const { apex } = window;
 
 /*
@@ -12,22 +13,25 @@ function _handleError(err, regionId, spinner) {
 }
 */
 
-function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol }) {
+function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol, focusOnLoad }) {
   apex.debug.info(
     `Init AG Grid plugin with params => ${JSON.stringify({
       regionId,
       ajaxId,
       itemsToSubmit,
       pkCol,
+      focusOnLoad,
     })}`
   );
 
+  /** @type any */
   const gridElement = document.createElement('p-ag-grid');
   gridElement.id = `${regionId}-component`;
   gridElement.regionId = regionId;
   gridElement.ajaxId = ajaxId;
   gridElement.itemsToSubmit = itemsToSubmit;
   gridElement.pkCol = pkCol;
+  gridElement.focusOnLoad = focusOnLoad === 'Y';
 
   document
     .querySelector(`#${regionId}_component_wrapper`)
@@ -59,6 +63,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol }) {
       // }
     },
     getSaveData: () => gridElement.getSaveData(),
+    focus: () => gridElement.focus(),
   });
 }
 
