@@ -367,15 +367,7 @@ class AgGrid extends HTMLElement {
     return row;
   }
 
-  #insertRow(rowId, where) {
-    if (!['above', 'below'].includes(where)) {
-      apex.debug.error(
-        `Invalid insert position "${where}" for region #${this.regionId}`
-      );
-
-      return;
-    }
-
+  #insertRow() {
     /*
     const rowNode = this.gridOptions.api.getRowNode(rowId);
 
@@ -389,6 +381,9 @@ class AgGrid extends HTMLElement {
     const newRow = this.#createRow();
     this.newRows.push(newRow);
     // this.dataCopy.splice(insertIndex, 0, newRow);
+
+    newRow[ROW_ACITON] = 'C';
+    this.changes.set(newRow[IDX_COL], newRow);
 
     const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
     if (maxRowFound) {
@@ -421,7 +416,7 @@ class AgGrid extends HTMLElement {
         type: 'action',
         label: 'Insert row above',
         action: () => {
-          this.#insertRow(currRowdId, 'above');
+          this.#insertRow();
         },
       },
     ];
