@@ -32,6 +32,8 @@ const gridOptions = {
 };
 
 class AgGrid extends HTMLElement {
+  #addRow;
+
   constructor() {
     super();
 
@@ -58,14 +60,14 @@ class AgGrid extends HTMLElement {
     if (!this.markedChanges) {
       apex.page.warnOnUnsavedChanges(
         'There are unsaved changes',
-        this.hasChanges()
+        this.hasChanges.bind(this)
       );
       this.markedChanges = true;
     }
   }
 
   // eslint-disable-next-line class-methods-use-this
-  #handleChange(event, instance) {
+  #handleChange(event) {
     const oldData = event.data;
     const { field } = event.colDef;
     const { newValue } = event;
@@ -80,15 +82,15 @@ class AgGrid extends HTMLElement {
     const pkVal = newData[IDX_COL];
 
     // don't override insert or delete
-    if (instance.changes.has(pkVal)) {
-      newData[ROW_ACITON] = instance.changes.get(pkVal)[ROW_ACITON];
+    if (this.changes.has(pkVal)) {
+      newData[ROW_ACITON] = this.changes.get(pkVal)[ROW_ACITON];
     } else {
       newData[ROW_ACITON] = 'U';
     }
 
-    instance.changes.set(pkVal, newData);
+    this.changes.set(pkVal, newData);
 
-    instance.markChanges();
+    this.markChanges();
   }
 
   #getGridOptions({ colMetaData }) {
@@ -148,7 +150,8 @@ class AgGrid extends HTMLElement {
     gridOptions.cacheBlockSize = this.amountOfRows;
     gridOptions.cacheOverflowSize = 1;
 
-    gridOptions.onCellValueChanged = (e) => this.#handleChange(e, this);
+    const boundHandleChange = this.#handleChange.bind(this);
+    gridOptions.onCellValueChanged = boundHandleChange;
 
     return gridOptions;
   }
@@ -200,6 +203,7 @@ class AgGrid extends HTMLElement {
             }
 
             const nextRow = oraFirstRow + data.length;
+            apex.debug.info(`next row is ${nextRow}`);
 
             if (this.focusOnLoad && params.startRow === 0) {
               setTimeout(() => {
@@ -207,6 +211,7 @@ class AgGrid extends HTMLElement {
               }, 100);
             }
 
+            this.#addRow = params.successCallback;
             params.successCallback(data, nextRow);
           } else {
             apex.debug.error(
@@ -236,6 +241,21 @@ class AgGrid extends HTMLElement {
     const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
     this.gridOptions.api.ensureColumnVisible(firstEditCol);
     this.gridOptions.api.setFocusedCell(0, firstEditCol);
+  }
+
+  focusId(rowId) {
+    const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
+    this.gridOptions.api.ensureColumnVisible(firstEditCol);
+
+    const rowNode = this.gridOptions.api.getRowNode(rowId);
+
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
+      return;
+    }
+    const { rowIndex } = rowNode;
+
+    this.gridOptions.api.setFocusedCell(rowIndex, firstEditCol);
   }
 
   getSaveData() {
@@ -275,6 +295,46 @@ class AgGrid extends HTMLElement {
     this.markChanges();
   }
 
+  #createRow() {
+    const row = {};
+
+    this.gridOptions.columnApi.getAllDisplayedColumns().forEach((col) => {
+      row[col.colId] = null;
+    });
+
+    row[IDX_COL] = new Date().getTime();
+
+    return row;
+  }
+
+  #insertRow(rowId, where) {
+    if (!['above', 'below'].includes(where)) {
+      apex.debug.error(
+        `Invalid insert position "${where}" for region #${this.regionId}`
+      );
+
+      return;
+    }
+
+    const rowNode = this.gridOptions.api.getRowNode(rowId);
+
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
+      return;
+    }
+    const { rowIndex } = rowNode;
+
+    const newRow = this.#createRow();
+    const rowCount = this.gridOptions.api.getDisplayedRowCount();
+    const nextRow = rowCount + 1;
+    apex.debug.info(`next row is ${nextRow}`);
+    this.#addRow([newRow], nextRow);
+
+    setTimeout(() => {
+      this.focusId(newRow[IDX_COL]);
+    }, 100);
+  }
+
   #setupContextMenu() {
     let currRowdId = null;
     const $contextMenu = $(`#${this.contextMenuId}`);
@@ -290,9 +350,9 @@ class AgGrid extends HTMLElement {
       },
       {
         type: 'action',
-        label: 'Show Confirm',
-        action() {
-          apex.message.confirm('Are you sure?');
+        label: 'Insert row above',
+        action: () => {
+          this.#insertRow(currRowdId, 'above');
         },
       },
     ];
