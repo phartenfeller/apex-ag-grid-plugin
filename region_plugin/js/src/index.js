@@ -12,7 +12,12 @@ const ROW_ACITON = '__row_action';
 /** @type {import('@ag-grid-community/all-modules').GridOptions} */
 const gridOptions = {
   // default col def properties get applied to all columns
-  defaultColDef: { sortable: false, filter: false, flex: 1, minWidth: 100 },
+  defaultColDef: {
+    sortable: false,
+    filter: false,
+    flex: 1,
+    resizable: true,
+  },
 
   rowSelection: 'multiple', // allow rows to be selected
   suppressRowClickSelection: true,
@@ -22,12 +27,9 @@ const gridOptions = {
   rowModelType: 'infinite',
 
   columnTypes: {
-    nonEdit: { editable: false, cellClass: ['xag-read-only-cell'] },
+    nonEdit: { editable: false },
     headerLeft: { headerClass: ['ag-left-aligned-header'] },
     headerRight: { headerClass: ['ag-right-aligned-header'] },
-    contentLeft: { cellClass: ['ag-left-aligned-cell'] },
-    contentRight: { cellClass: ['ag-right-aligned-cell'] },
-    contentCenter: { cellClass: ['xag-center-aligned-cell'] },
   },
 };
 
@@ -106,14 +108,18 @@ class AgGrid extends HTMLElement {
         checkboxSelection: true,
         headerName: '',
         valueFormatter: () => '', // don't show any value in the column
-        width: 50,
+        maxWidth: 50,
       },
     ];
 
     colMetaData.forEach((col) => {
+      const cellClasses = [];
       const types = [];
 
-      if (!col.editable) types.push('nonEdit');
+      if (!col.editable) {
+        types.push('nonEdit');
+        cellClasses.push('xag-read-only-cell');
+      }
 
       if (col.heading_alignment === 'RIGHT') {
         types.push('headerRight');
@@ -121,12 +127,12 @@ class AgGrid extends HTMLElement {
         types.push('headerLeft');
       }
 
-      if (col.value_alignment === 'CENTER') {
-        types.push('contentCenter');
+      if (col.value_alignment === 'LEFT') {
+        cellClasses.push('ag-left-aligned-cell');
       } else if (col.value_alignment === 'RIGHT') {
-        types.push('contentRight');
+        cellClasses.push('ag-right-aligned-cell');
       } else {
-        types.push('contentLeft');
+        cellClasses.push('xag-center-aligned-cell');
       }
 
       /** @type {import('@ag-grid-community/all-modules').ColDef} */
@@ -137,6 +143,7 @@ class AgGrid extends HTMLElement {
         editable: col.editable,
         hide: !col.is_visible,
         type: types,
+        cellClass: cellClasses,
       };
 
       if (col.number_format) {
