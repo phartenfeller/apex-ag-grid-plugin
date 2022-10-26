@@ -196,7 +196,7 @@ class AgGrid extends HTMLElement {
       getRows: async (params) => {
         try {
           apex.debug.info(
-            `asking for ${params.startRow} - ${params.endRow}. Insertet rows: ${this.newRows.length}`
+            `asking for ${params.startRow} - ${params.endRow}. New rows: ${this.newRows.length}`
           );
 
           const toDeliverRows = [];
@@ -461,6 +461,19 @@ class AgGrid extends HTMLElement {
     this.#setupGrid();
 
     this.#setupContextMenu();
+  }
+
+  saveSuccess() {
+    this.changes.clear();
+    this.newRows = [];
+    this.dataCopy = [];
+    this.fetchedAllDbRows = false;
+    $(`#${this.regionId} .marked-for-deletion`).removeClass(
+      'marked-for-deletion'
+    );
+
+    // refetch data
+    gridOptions.api.refreshInfiniteCache();
   }
 }
 

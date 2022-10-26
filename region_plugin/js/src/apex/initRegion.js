@@ -64,6 +64,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol, focusOnLoad }) {
     },
     getSaveData: () => gridElement.getSaveData(),
     focus: () => gridElement.focus(),
+    saveSuccess: () => gridElement.saveSuccess(),
   });
 }
 
