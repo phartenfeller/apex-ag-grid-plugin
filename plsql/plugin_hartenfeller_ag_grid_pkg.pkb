@@ -57,7 +57,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     l_return apex_plugin.t_region_ajax_result;
     l_region_id     p_region.static_id%type := p_region.static_id;
 
-    l_col_info tt_col_info;
+    l_col_info_query_tab tt_col_info;
 
     l_has_default_id boolean;
     
@@ -67,7 +67,9 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     l_first_row pls_integer;
     l_max_rows  pls_integer;
     
-    l_context       apex_exec.t_context;
+    l_context           apex_exec.t_context;
+    l_col_info          apex_exec.t_column;
+    l_col_info_exec_tab apex_exec.t_columns;
   begin
     apex_plugin_util.debug_region
     (
@@ -80,67 +82,66 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
 
     l_methods_split := apex_string.split(l_methods, ':');
 
-    l_has_default_id := regexp_substr(l_region_id, 'R[0-9]+$') = l_region_id;
-
-    if l_has_default_id then
-      select c.name
-          , c.data_type
-          , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
-          , c.heading
-          , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
-          , c.attribute_02 as grid_data_type
-          , c.attribute_03 as number_format
-          , c.attribute_04 as heading_alignment
-          , c.value_alignment
-        bulk collect into l_col_info
-        from APEX_APPLICATION_PAGE_REGIONS r 
-        join APEX_APPLICATION_PAGE_REG_COLS c
-          on r.region_id = c.region_id
-      where r.application_id = v('APP_ID')
-        and r.page_id = v('APP_PAGE_ID')
-        and r.region_id = to_number(replace(l_region_id, 'R', ''))
-      order by c.display_sequence
-      ;
-    else 
-      select c.name
-          , c.data_type
-          , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
-          , c.heading
-          , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
-          , c.attribute_02 as grid_data_type
-          , c.attribute_03 as number_format
-          , c.attribute_04 as heading_alignment
-          , c.value_alignment
-        bulk collect into l_col_info
-        from APEX_APPLICATION_PAGE_REGIONS r 
-        join APEX_APPLICATION_PAGE_REG_COLS c
-          on r.region_id = c.region_id
-      where r.application_id = v('APP_ID')
-        and r.page_id = v('APP_PAGE_ID')
-        and r.static_id = l_region_id
-      order by c.display_sequence
-      ;
-    end if;
-
-
     apex_json.open_object; -- {
 
     if 'colMetadata' member of l_methods_split then
+
+      l_has_default_id := regexp_substr(l_region_id, 'R[0-9]+$') = l_region_id;
+    
+      if l_has_default_id then
+        select c.name
+            , c.data_type
+            , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
+            , c.heading
+            , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
+            , c.attribute_02 as grid_data_type
+            , c.attribute_03 as number_format
+            , c.attribute_04 as heading_alignment
+            , c.value_alignment
+          bulk collect into l_col_info_query_tab
+          from APEX_APPLICATION_PAGE_REGIONS r 
+          join APEX_APPLICATION_PAGE_REG_COLS c
+            on r.region_id = c.region_id
+        where r.application_id = v('APP_ID')
+          and r.page_id = v('APP_PAGE_ID')
+          and r.region_id = to_number(replace(l_region_id, 'R', ''))
+        order by c.display_sequence
+        ;
+      else 
+        select c.name
+            , c.data_type
+            , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
+            , c.heading
+            , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
+            , c.attribute_02 as grid_data_type
+            , c.attribute_03 as number_format
+            , c.attribute_04 as heading_alignment
+            , c.value_alignment
+          bulk collect into l_col_info_query_tab
+          from APEX_APPLICATION_PAGE_REGIONS r 
+          join APEX_APPLICATION_PAGE_REG_COLS c
+            on r.region_id = c.region_id
+        where r.application_id = v('APP_ID')
+          and r.page_id = v('APP_PAGE_ID')
+          and r.static_id = l_region_id
+        order by c.display_sequence
+        ;
+      end if;
       apex_json.open_array('colMetaData'); -- "colMetaData": [
       
 
-      for i in 1 .. l_col_info.count
+      for i in 1 .. l_col_info_query_tab.count
       loop
         apex_json.open_object; -- {
-        apex_json.write('colname', l_col_info(i).NAME); -- "colname": "..."
-        apex_json.write('dataType', l_col_info(i).DATA_TYPE); -- "dataType": "..."
-        apex_json.write('heading', l_col_info(i).heading); -- "heading": "..."
-        apex_json.write('is_visible',l_col_info(i).is_visible = 1); -- "is_visible": "..."
-        apex_json.write('editable',l_col_info(i).editable = 1); -- "editable": "..."
-        apex_json.write('grid_data_type',l_col_info(i).grid_data_type); -- "grid_data_type": "..."
-        apex_json.write('number_format',l_col_info(i).number_format); -- "number_format": "..."
-        apex_json.write('heading_alignment',l_col_info(i).heading_alignment); -- "heading_alignment": "..."
-        apex_json.write('value_alignment',l_col_info(i).value_alignment); -- "value_alignment": "..."
+        apex_json.write('colname', l_col_info_query_tab(i).NAME); -- "colname": "..."
+        apex_json.write('dataType', l_col_info_query_tab(i).DATA_TYPE); -- "dataType": "..."
+        apex_json.write('heading', l_col_info_query_tab(i).heading); -- "heading": "..."
+        apex_json.write('is_visible',l_col_info_query_tab(i).is_visible = 1); -- "is_visible": "..."
+        apex_json.write('editable',l_col_info_query_tab(i).editable = 1); -- "editable": "..."
+        apex_json.write('grid_data_type',l_col_info_query_tab(i).grid_data_type); -- "grid_data_type": "..."
+        apex_json.write('number_format',l_col_info_query_tab(i).number_format); -- "number_format": "..."
+        apex_json.write('heading_alignment',l_col_info_query_tab(i).heading_alignment); -- "heading_alignment": "..."
+        apex_json.write('value_alignment',l_col_info_query_tab(i).value_alignment); -- "value_alignment": "..."
         apex_json.close_object; -- }
       end loop;
 
@@ -160,16 +161,22 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
 
       apex_json.open_array('data'); -- "data": [
 
+      for i in 1 .. apex_exec.get_column_count(l_context)
+      loop
+        l_col_info := apex_exec.get_column(l_context, i);
+        l_col_info_exec_tab(i) := l_col_info;
+      end loop;
+
       while apex_exec.next_row( p_context => l_context ) 
       loop
         apex_json.open_object; -- {
 
-        for i in 1 .. l_col_info.count
+        for i in 1 .. l_col_info_exec_tab.count
         loop
-          if l_col_info(i).data_type = 'NUMBER' then
-            apex_json.write(l_col_info(i).name, apex_exec.get_number( p_context => l_context, p_column_idx => i ) );
+          if l_col_info_exec_tab(i).data_type = apex_exec.c_data_type_number then
+            apex_json.write(l_col_info_exec_tab(i).name, apex_exec.get_number( p_context => l_context, p_column_idx => i ) );
           else
-            apex_json.write(l_col_info(i).name, apex_exec.get_varchar2( p_context => l_context, p_column_idx => i ) );
+            apex_json.write(l_col_info_exec_tab(i).name, apex_exec.get_varchar2( p_context => l_context, p_column_idx => i ) );
           end if;
         end loop;
 
@@ -301,7 +308,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
 
     type tt_col_info is table of t_col_info;
 
-    l_col_info tt_col_info;
+    l_col_info_query_tab tt_col_info;
     l_has_default_id boolean;
 
     c_type_number constant varchar2(100) := 'NUMBER';
@@ -366,7 +373,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     if l_has_default_id then
       select c.name
           , c.data_type
-        bulk collect into l_col_info
+        bulk collect into l_col_info_query_tab
         from APEX_APPLICATION_PAGE_REGIONS r 
         join APEX_APPLICATION_PAGE_REG_COLS c
           on r.region_id = c.region_id
@@ -379,7 +386,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     else 
       select c.name
           , c.data_type
-        bulk collect into l_col_info
+        bulk collect into l_col_info_query_tab
         from APEX_APPLICATION_PAGE_REGIONS r 
         join APEX_APPLICATION_PAGE_REG_COLS c
           on r.region_id = c.region_id
@@ -423,22 +430,22 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
             );
           end if;
 
-          for j in 1 .. l_col_info.count loop
-            apex_debug.message('Column (%s): %s (%s)', j, l_col_info(j).name, l_col_info(j).data_type);
-            l_json_path := apex_string.format('regions[1].data.%0.%1', l_pk_vals(i), l_col_info(j).name);
+          for j in 1 .. l_col_info_query_tab.count loop
+            apex_debug.message('Column (%s): %s (%s)', j, l_col_info_query_tab(j).name, l_col_info_query_tab(j).data_type);
+            l_json_path := apex_string.format('regions[1].data.%0.%1', l_pk_vals(i), l_col_info_query_tab(j).name);
 
-            if  l_col_info(j).data_type = c_type_number then
+            if  l_col_info_query_tab(j).data_type = c_type_number then
               apex_debug.message('value: %s (%s)', apex_json.get_number( p_values => l_values, p_path => l_json_path ), l_json_path);
               apex_exec.ADD_PARAMETER (
                   p_parameters => l_parameters
-                  , p_name => l_col_info(j).name
+                  , p_name => l_col_info_query_tab(j).name
                   , p_value => apex_json.get_number( p_values => l_values, p_path => l_json_path )
               );
             else
               apex_debug.message('value: %s (%s)', apex_json.get_varchar2( p_values => l_values, p_path => l_json_path ), l_json_path);
               apex_exec.ADD_PARAMETER (
                   p_parameters => l_parameters
-                  , p_name => l_col_info(j).name
+                  , p_name => l_col_info_query_tab(j).name
                   , p_value =>  apex_json.get_varchar2( p_values => l_values, p_path => l_json_path )
               );
             end if;
