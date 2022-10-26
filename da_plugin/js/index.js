@@ -16,6 +16,9 @@ function hideSpinner() {
 function _saveGrid({ regionId, ajaxId }) {
   try {
     const { data, pkCol, pkIds } = apex.region(regionId).getSaveData();
+    if (pkIds.length === 0) {
+      return;
+    }
 
     showSpinner({ apex, regionId });
 
