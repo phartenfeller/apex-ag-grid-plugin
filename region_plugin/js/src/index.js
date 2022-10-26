@@ -141,7 +141,9 @@ class AgGrid extends HTMLElement {
 
       if (col.number_format) {
         colDef.valueFormatter = (params) =>
-          apex.locale.formatNumber(params.value, col.number_format);
+          params?.value
+            ? apex.locale.formatNumber(params.value, col.number_format)
+            : '';
       }
 
       columnDefs.push(colDef);
