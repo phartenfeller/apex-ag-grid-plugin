@@ -12,7 +12,7 @@ This Plug-In is currently in a beta status. Expect bugs and changes. Please subm
 
 ## Installation
 
-1. Go to latest GitHub release and download the zip
+1. Go to [latest GitHub release](https://github.com/phartenfeller/apex-ag-grid-plugin/releases) and download the zip
 2. Install DB Package
 3. Install both region and dynamic action Plug-Ins
 
