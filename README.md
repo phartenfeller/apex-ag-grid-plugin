@@ -4,6 +4,8 @@ Implementation of the Community Edition [AG Grid](https://www.ag-grid.com/) comp
 
 ![Plugin Demo](./assets/plugin_demo.gif)
 
+[Interactive Demo](https://apex.oracle.com/pls/apex/r/hartenfeller_dev/ag-grid-plugin-demo)
+
 ## Beta Status
 
 This Plug-In is currently in a beta status. Expect bugs and changes. Please submit feedback, bugs, request etc. as GitHub issues or discussions.
