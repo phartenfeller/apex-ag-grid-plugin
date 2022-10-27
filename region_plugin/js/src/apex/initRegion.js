@@ -38,33 +38,10 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol, focusOnLoad }) {
     .appendChild(gridElement);
 
   apex.region.create(regionId, {
-    refresh: () => {
-      // const spinner = apex.util.showSpinner(apex.jQuery(`#${regionId}`));
-      // try {
-      //   _resetText(regionId);
-      //   apex.server.plugin(
-      //     ajaxId,
-      //     {
-      //       pageItems: itemsToSubmit,
-      //     },
-      //     {
-      //       success(data) {
-      //         spinner.remove();
-      //         _handleData(data, regionId);
-      //       },
-      //       error(err) {
-      //         _handleError(err, regionId, spinner);
-      //       },
-      //       dataType: 'json',
-      //     }
-      //   );
-      // } catch (err) {
-      //   _handleError(err, regionId, spinner);
-      // }
-    },
     getSaveData: () => gridElement.getSaveData(),
     focus: () => gridElement.focus(),
     saveSuccess: () => gridElement.saveSuccess(),
+    refresh: () => gridElement.refresh(),
   });
 }
 

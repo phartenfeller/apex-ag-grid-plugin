@@ -415,17 +415,18 @@ class AgGrid extends HTMLElement {
     const menuList = [
       {
         type: 'action',
-        label: 'Delete row',
-        icon: 'fa fa-trash',
+        label: 'Insert new row',
+        icon: 'fa fa-plus',
         action: () => {
-          this.#markRowDeleted(currRowdId);
+          this.#insertRow();
         },
       },
       {
         type: 'action',
-        label: 'Insert row above',
+        label: 'Delete row',
+        icon: 'fa fa-trash',
         action: () => {
-          this.#insertRow();
+          this.#markRowDeleted(currRowdId);
         },
       },
     ];
@@ -463,8 +464,7 @@ class AgGrid extends HTMLElement {
     this.#setupContextMenu();
   }
 
-  saveSuccess() {
-    this.changes.clear();
+  refresh() {
     this.newRows = [];
     this.dataCopy = [];
     this.fetchedAllDbRows = false;
@@ -474,6 +474,11 @@ class AgGrid extends HTMLElement {
 
     // refetch data
     gridOptions.api.refreshInfiniteCache();
+  }
+
+  saveSuccess() {
+    this.changes.clear();
+    this.refresh();
   }
 }
 
