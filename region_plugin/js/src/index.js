@@ -8,6 +8,7 @@ const $ = apex.jQuery;
 
 const IDX_COL = '__idx';
 const ROW_ACITON = '__row_action';
+const DATA_LOAD_EVENT = 'dataLoadComplete';
 
 /** @type {import('@ag-grid-community/all-modules').GridOptions} */
 const gridOptions = {
@@ -298,6 +299,9 @@ class AgGrid extends HTMLElement {
           console.log('toDeliverRows after oracle', toDeliverRows);
           apex.debug.info(`last row is ${lastRow}`);
           params.successCallback(toDeliverRows, lastRow);
+
+          const event = new Event(DATA_LOAD_EVENT);
+          this.gridNode.dispatchEvent(event);
         } catch (err) {
           apex.debug.error(
             `Error fetching data from region #${
@@ -468,12 +472,25 @@ class AgGrid extends HTMLElement {
     this.newRows = [];
     this.dataCopy = [];
     this.fetchedAllDbRows = false;
+    /*
     $(`#${this.regionId} .marked-for-deletion`).removeClass(
       'marked-for-deletion'
+    ); */
+
+    // redraw rows after data refresh done
+    // needed to update row ids for example
+    this.gridNode.addEventListener(
+      DATA_LOAD_EVENT,
+      () => {
+        setTimeout(() => {
+          this.gridOptions.api.redrawRows();
+        }, 0);
+      },
+      { once: true }
     );
 
     // refetch data
-    gridOptions.api.refreshInfiniteCache();
+    this.gridOptions.api.refreshInfiniteCache();
   }
 
   saveSuccess() {
