@@ -2,6 +2,8 @@
 
 class CheckboxRenderer {
   init(params) {
+    this.editable = params.colDef.editable;
+
     this.params = params;
 
     this.outerDiv = document.createElement('div');
@@ -15,9 +17,15 @@ class CheckboxRenderer {
     this.checkBox = document.createElement('input');
     this.checkBox.type = 'checkbox';
     this.checkBox.checked = params.value;
+    if (!this.editable) {
+      this.checkBox.disabled = true;
+    }
 
     this.checkedHandler = this.checkedHandler.bind(this);
-    this.checkBox.addEventListener('click', this.checkedHandler);
+
+    if (this.editable) {
+      this.checkBox.addEventListener('click', this.checkedHandler);
+    }
 
     innerDiv.appendChild(this.checkBox);
   }
@@ -33,7 +41,9 @@ class CheckboxRenderer {
   }
 
   destroy() {
-    this.checkBox.removeEventListener('click', this.checkedHandler);
+    if (this.editable) {
+      this.checkBox.removeEventListener('click', this.checkedHandler);
+    }
   }
 }
 
