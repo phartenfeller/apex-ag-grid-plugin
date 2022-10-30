@@ -1,5 +1,6 @@
 import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
+import CheckboxRenderer from './gui-components/CheckboxRenderer';
 import AG_GRID from './initGrid';
 
 /** @type any */
@@ -32,6 +33,10 @@ const gridOptions = {
     headerLeft: { headerClass: ['ag-left-aligned-header'] },
     headerRight: { headerClass: ['ag-right-aligned-header'] },
   },
+
+  components: {
+    checkboxRenderer: CheckboxRenderer,
+  },
 };
 
 class AgGrid extends HTMLElement {
@@ -57,6 +62,8 @@ class AgGrid extends HTMLElement {
     this.dataCopy = [];
     this.newRows = [];
     this.fetchedAllDbRows = false;
+
+    this.boolCols = [];
   }
 
   hasChanges() {
@@ -372,6 +379,7 @@ class AgGrid extends HTMLElement {
     const row = {};
 
     this.gridOptions.columnApi.getAllDisplayedColumns().forEach((col) => {
+      // @ts-ignore
       row[col.colId] = null;
     });
 
