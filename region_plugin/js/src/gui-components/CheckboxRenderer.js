@@ -8,15 +8,24 @@ class CheckboxRenderer {
 
     this.checkBox = document.createElement('input');
     this.checkBox.type = 'checkbox';
+    this.checkBox.classList.add('xag-checkbox');
     this.checkBox.checked = params.value;
     if (this.disabled) {
       this.checkBox.disabled = true;
     }
 
     this.checkedHandler = this.checkedHandler.bind(this);
+    this.keyPressHandler = this.keyPressHandler.bind(this);
 
     if (!this.disabled) {
       this.checkBox.addEventListener('click', this.checkedHandler);
+      params.eParentOfValue.addEventListener('keypress', this.keyPressHandler);
+    }
+  }
+
+  keyPressHandler(e) {
+    if (e.key === 'Enter') {
+      this.checkBox.click();
     }
   }
 
@@ -33,6 +42,10 @@ class CheckboxRenderer {
   destroy() {
     if (!this.disabled) {
       this.checkBox.removeEventListener('click', this.checkedHandler);
+      this.params.eParentOfValue.addEventListener(
+        'keypress',
+        this.keyPressHandler
+      );
     }
   }
 }
