@@ -162,8 +162,12 @@ class AgGrid extends HTMLElement {
             : '';
       }
 
-      if (col.dataType === 'Checkbox') {
+      if (col.grid_data_type === 'Checkbox') {
         colDef.cellRenderer = 'checkboxRenderer';
+        colDef.editable = false; // only show renderer as we can click the checkbox
+        colDef.cellRendererParams = {
+          disabled: !col.editable, // disable checkbox if not editable
+        };
         this.boolCols.push(col.colname);
       }
 

@@ -2,32 +2,22 @@
 
 class CheckboxRenderer {
   init(params) {
-    this.editable = params.colDef.editable;
+    this.disabled = params.disabled;
 
     this.params = params;
-
-    this.outerDiv = document.createElement('div');
-    this.outerDiv.classList.add('apex-item-checkbox');
-
-    const innerDiv = document.createElement('div');
-    innerDiv.classList.add('apex-item-option');
-
-    this.outerDiv.appendChild(innerDiv);
 
     this.checkBox = document.createElement('input');
     this.checkBox.type = 'checkbox';
     this.checkBox.checked = params.value;
-    if (!this.editable) {
+    if (this.disabled) {
       this.checkBox.disabled = true;
     }
 
     this.checkedHandler = this.checkedHandler.bind(this);
 
-    if (this.editable) {
+    if (!this.disabled) {
       this.checkBox.addEventListener('click', this.checkedHandler);
     }
-
-    innerDiv.appendChild(this.checkBox);
   }
 
   checkedHandler(e) {
@@ -37,11 +27,11 @@ class CheckboxRenderer {
   }
 
   getGui() {
-    return this.outerDiv;
+    return this.checkBox;
   }
 
   destroy() {
-    if (this.editable) {
+    if (!this.disabled) {
       this.checkBox.removeEventListener('click', this.checkedHandler);
     }
   }
