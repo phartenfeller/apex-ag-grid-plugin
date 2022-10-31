@@ -1,6 +1,8 @@
 import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
+import CheckboxRenderer from './gui-components/CheckboxRenderer';
 import AG_GRID from './initGrid';
+import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
 
 /** @type any */
 const { apex } = window;
@@ -32,6 +34,10 @@ const gridOptions = {
     headerLeft: { headerClass: ['ag-left-aligned-header'] },
     headerRight: { headerClass: ['ag-right-aligned-header'] },
   },
+
+  components: {
+    checkboxRenderer: CheckboxRenderer,
+  },
 };
 
 class AgGrid extends HTMLElement {
@@ -57,6 +63,8 @@ class AgGrid extends HTMLElement {
     this.dataCopy = [];
     this.newRows = [];
     this.fetchedAllDbRows = false;
+
+    this.boolCols = [];
   }
 
   hasChanges() {
@@ -154,6 +162,15 @@ class AgGrid extends HTMLElement {
             : '';
       }
 
+      if (col.grid_data_type === 'Checkbox') {
+        colDef.cellRenderer = 'checkboxRenderer';
+        colDef.editable = false; // only show renderer as we can click the checkbox
+        colDef.cellRendererParams = {
+          disabled: !col.editable, // disable checkbox if not editable
+        };
+        this.boolCols.push(col.colname);
+      }
+
       columnDefs.push(colDef);
     });
 
@@ -200,7 +217,7 @@ class AgGrid extends HTMLElement {
             `asking for ${params.startRow} - ${params.endRow}. New rows: ${this.newRows.length}`
           );
 
-          const toDeliverRows = [];
+          let toDeliverRows = [];
           const wantedRows = params.endRow - params.startRow;
 
           // first deliver new rows
@@ -213,7 +230,7 @@ class AgGrid extends HTMLElement {
             toDeliverRows.push(...this.newRows.slice(params.startRow, subEnd));
           }
 
-          console.log('toDeliverRows after inserted', toDeliverRows);
+          apex.debug.info('toDeliverRows after inserted', toDeliverRows);
 
           const firstWantedDataRow =
             params.startRow === 0 ? 0 : params.startRow - this.newRows.length;
@@ -235,7 +252,7 @@ class AgGrid extends HTMLElement {
             );
           }
 
-          console.log('toDeliverRows after cache', toDeliverRows);
+          apex.debug.info('toDeliverRows after cache', toDeliverRows);
 
           const oraFirstRow =
             params.startRow === 0
@@ -296,8 +313,17 @@ class AgGrid extends HTMLElement {
             ? this.dataCopy.length + this.newRows.length
             : -1;
 
-          console.log('toDeliverRows after oracle', toDeliverRows);
+          apex.debug.info('toDeliverRows after oracle', toDeliverRows);
           apex.debug.info(`last row is ${lastRow}`);
+
+          if (this.boolCols.length > 0) {
+            apex.debug.info(
+              `Converting bool cols (${this.boolCols.join(', ')})`
+            );
+
+            toDeliverRows = arrayNumToBool(toDeliverRows, this.boolCols);
+          }
+
           params.successCallback(toDeliverRows, lastRow);
 
           const event = new Event(DATA_LOAD_EVENT);
@@ -332,12 +358,18 @@ class AgGrid extends HTMLElement {
   }
 
   getSaveData() {
-    const data = Array.from(this.changes.values());
+    let data = Array.from(this.changes.values());
+
+    if (this.boolCols.length > 0) {
+      data = arrayBoolsToNum(data, this.boolCols);
+    }
+
     const pkIds = data.map((row) => row[IDX_COL]);
     const dataMap = {};
     data.forEach((row) => {
       dataMap[row[IDX_COL]] = row;
     });
+
     apex.debug.info('Saving data', dataMap);
 
     return { data: dataMap, pkCol: this.pkCol, pkIds };
@@ -372,6 +404,7 @@ class AgGrid extends HTMLElement {
     const row = {};
 
     this.gridOptions.columnApi.getAllDisplayedColumns().forEach((col) => {
+      // @ts-ignore
       row[col.colId] = null;
     });
 
