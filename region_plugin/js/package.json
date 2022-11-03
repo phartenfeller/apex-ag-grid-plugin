@@ -15,7 +15,8 @@
     "start": "npx webpack-cli serve --mode=development --config webpack.dev.js",
     "build": "npm-run-all build-demo build-prod",
     "build-demo": "npx webpack-cli --mode=development --config webpack.dev.js",
-    "build-prod": "npx webpack-cli --mode=production --config webpack.prod.js"
+    "build-prod": "npx webpack-cli --mode=production --config webpack.prod.js",
+    "serve": "npx webpack-cli serve --mode=development --config webpack.serve.js"
   },
   "dependencies": {
     "@ag-grid-community/all-modules": "^27.3.0"
