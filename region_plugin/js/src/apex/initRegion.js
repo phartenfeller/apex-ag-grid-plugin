@@ -13,7 +13,14 @@ function _handleError(err, regionId, spinner) {
 }
 */
 
-function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol, focusOnLoad }) {
+function _initPlugin({
+  regionId,
+  ajaxId,
+  itemsToSubmit,
+  pkCol,
+  focusOnLoad,
+  displayRownum,
+}) {
   apex.debug.info(
     `Init AG Grid plugin with params => ${JSON.stringify({
       regionId,
@@ -21,6 +28,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol, focusOnLoad }) {
       itemsToSubmit,
       pkCol,
       focusOnLoad,
+      displayRownum,
     })}`
   );
 
@@ -32,6 +40,7 @@ function _initPlugin({ regionId, ajaxId, itemsToSubmit, pkCol, focusOnLoad }) {
   gridElement.itemsToSubmit = itemsToSubmit;
   gridElement.pkCol = pkCol;
   gridElement.focusOnLoad = focusOnLoad === 'Y';
+  gridElement.displayRownum = displayRownum === 'Y';
 
   document
     .querySelector(`#${regionId}_component_wrapper`)

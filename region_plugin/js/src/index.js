@@ -49,6 +49,7 @@ class AgGrid extends HTMLElement {
     this.regionId = this.getAttribute('regionId');
     this.pkCol = this.getAttribute('pkCol');
     this.focusOnLoad = this.getAttribute('focusOnLoad') === 'true';
+    this.displayRownum = this.getAttribute('displayRownum') === 'true';
 
     this.contextMenuId = `${this.regionId}-context-menu`;
 
@@ -110,16 +111,30 @@ class AgGrid extends HTMLElement {
 
   #getGridOptions({ colMetaData }) {
     /** @type {import('@ag-grid-community/all-modules').ColDef[]} */
-    const columnDefs = [
-      {
-        field: IDX_COL,
+    const columnDefs = [];
+
+    // wether to show the row number col
+    if (this.displayRownum) {
+      columnDefs.push({
+        field: '__ROWNUM',
         editable: false,
-        checkboxSelection: true,
+        type: ['nonEdit'],
+        cellClass: ['xag-center-aligned-cell', 'xag-rownum-col'],
+        valueGetter: (params) => params.node.rowIndex + 1,
         headerName: '',
-        valueFormatter: () => '', // don't show any value in the column
         maxWidth: 50,
-      },
-    ];
+      });
+    }
+
+    // internal index col, display as checkbox
+    columnDefs.push({
+      field: IDX_COL,
+      editable: false,
+      checkboxSelection: true,
+      headerName: '',
+      valueFormatter: () => '', // don't show any value in the column
+      maxWidth: 50,
+    });
 
     colMetaData.forEach((col) => {
       const cellClasses = [];
