@@ -110,16 +110,26 @@ class AgGrid extends HTMLElement {
 
   #getGridOptions({ colMetaData }) {
     /** @type {import('@ag-grid-community/all-modules').ColDef[]} */
-    const columnDefs = [
-      {
-        field: IDX_COL,
-        editable: false,
-        checkboxSelection: true,
-        headerName: '',
-        valueFormatter: () => '', // don't show any value in the column
-        maxWidth: 50,
-      },
-    ];
+    const columnDefs = [];
+
+    columnDefs.push({
+      editable: false,
+      type: ['nonEdit'],
+      cellClass: ['xag-center-aligned-cell', 'xag-rownum-col'],
+      valueGetter: (params) => params.node.rowIndex + 1,
+      headerName: '',
+      maxWidth: 50,
+    });
+
+    // internal index col, display as checkbox
+    columnDefs.push({
+      field: IDX_COL,
+      editable: false,
+      checkboxSelection: true,
+      headerName: '',
+      valueFormatter: () => '', // don't show any value in the column
+      maxWidth: 50,
+    });
 
     colMetaData.forEach((col) => {
       const cellClasses = [];
