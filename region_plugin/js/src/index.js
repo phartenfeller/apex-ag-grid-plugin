@@ -49,6 +49,7 @@ class AgGrid extends HTMLElement {
     this.regionId = this.getAttribute('regionId');
     this.pkCol = this.getAttribute('pkCol');
     this.focusOnLoad = this.getAttribute('focusOnLoad') === 'true';
+    this.displayRownum = this.getAttribute('displayRownum') === 'true';
 
     this.contextMenuId = `${this.regionId}-context-menu`;
 
@@ -112,14 +113,18 @@ class AgGrid extends HTMLElement {
     /** @type {import('@ag-grid-community/all-modules').ColDef[]} */
     const columnDefs = [];
 
-    columnDefs.push({
-      editable: false,
-      type: ['nonEdit'],
-      cellClass: ['xag-center-aligned-cell', 'xag-rownum-col'],
-      valueGetter: (params) => params.node.rowIndex + 1,
-      headerName: '',
-      maxWidth: 50,
-    });
+    // wether to show the row number col
+    if (this.displayRownum) {
+      columnDefs.push({
+        field: '__ROWNUM',
+        editable: false,
+        type: ['nonEdit'],
+        cellClass: ['xag-center-aligned-cell', 'xag-rownum-col'],
+        valueGetter: (params) => params.node.rowIndex + 1,
+        headerName: '',
+        maxWidth: 50,
+      });
+    }
 
     // internal index col, display as checkbox
     columnDefs.push({

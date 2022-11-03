@@ -42,6 +42,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
                                   apex_javascript.add_attribute( p_name => 'itemsToSubmit', p_value => apex_plugin_util.page_item_names_to_jquery( p_page_item_names => p_region.ajax_items_to_submit ) ) ||
                                   apex_javascript.add_attribute( p_name => 'pkCol', p_value => p_region.attribute_01 ) ||
                                   apex_javascript.add_attribute( p_name => 'focusOnLoad', p_value => p_region.attribute_02 ) ||
+                                  apex_javascript.add_attribute( p_name => 'displayRownum', p_value => p_region.attribute_03 ) ||
                                   '})');
     
     
