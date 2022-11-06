@@ -2,7 +2,6 @@
 
 class HtmlRenderer {
   init(params) {
-    console.log('init', params);
     this.template = params.template;
 
     this.params = params;
@@ -16,19 +15,28 @@ class HtmlRenderer {
     if (!id) {
       return;
     }
-    console.log('id', id);
-    const row = params.api.getRowNode(id);
-    console.log('row', row);
+    this.applyHtml(id);
+  }
 
+  applyHtml(id) {
+    const row = this.params.api.getRowNode(id);
     const content = apex.util.applyTemplate(this.template, {
       placeholders: row.data,
     });
-    console.log('content', content);
     this.div.innerHTML = content;
   }
 
   getGui() {
     return this.div;
+  }
+
+  refresh(params) {
+    const { id } = params.node;
+    if (!id) {
+      return false;
+    }
+    this.applyHtml(id);
+    return true;
   }
 }
 

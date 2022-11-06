@@ -64,6 +64,8 @@ class AgGrid extends HTMLElement {
     this.fetchedAllDbRows = false;
 
     this.boolCols = [];
+
+    this.refreshCols = [];
   }
 
   hasChanges() {
@@ -105,6 +107,14 @@ class AgGrid extends HTMLElement {
     this.changes.set(pkVal, newData);
 
     this.markChanges();
+
+    this.refreshCols.forEach((col) => {
+      this.gridOptions.api.refreshCells({
+        force: true,
+        rowNodes: [event.node],
+        columns: [col],
+      });
+    });
   }
 
   #getGridOptions({ colMetaData }) {
@@ -187,6 +197,9 @@ class AgGrid extends HTMLElement {
         colDef.cellRendererParams = {
           template: col.htmlTemplate,
         };
+
+        // add to list of cols that need to be refreshed on change
+        this.refreshCols.push(col.colname);
       }
 
       columnDefs.push(colDef);
