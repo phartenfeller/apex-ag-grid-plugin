@@ -54,6 +54,7 @@ class AgGrid extends HTMLElement {
     this.amountOfRows = 30;
 
     this.changes = new Map();
+    this.originalState = new Map();
 
     this.markedChanges = false;
 
@@ -97,17 +98,24 @@ class AgGrid extends HTMLElement {
 
     const pkVal = newData[IDX_COL];
 
-    // don't override insert or delete
+    // Set ROW_ACITON
+    // !don't override insert or delete!
     if (this.changes.has(pkVal)) {
       newData[ROW_ACITON] = this.changes.get(pkVal)[ROW_ACITON];
     } else {
       newData[ROW_ACITON] = 'U';
     }
 
+    // add change to changes map
     this.changes.set(pkVal, newData);
-
     this.markChanges();
 
+    // set original state for revert
+    if (!this.originalState.has(pkVal)) {
+      this.originalState.set(pkVal, oldData);
+    }
+
+    // if there are reactive columns, refresh them
     this.refreshCols.forEach((col) => {
       this.gridOptions.api.refreshCells({
         force: true,
@@ -291,6 +299,9 @@ class AgGrid extends HTMLElement {
               : params.startRow + 1 - this.newRows.length;
           const oraAmountOfRows = wantedRows - toDeliverRows.length;
 
+          apex.debug.info(
+            `Fetch oracle? fetchedAllDbRows => ${this.fetchedAllDbRows}, oraAmountOfRows => ${oraAmountOfRows}`
+          );
           if (!this.fetchedAllDbRows && oraAmountOfRows > 0) {
             apex.debug.info(
               `Query from oracle from ${oraFirstRow} #${oraAmountOfRows} rows`
@@ -309,7 +320,7 @@ class AgGrid extends HTMLElement {
             if (dataRes.data) {
               const { data } = dataRes;
               for (let i = 0; i < data.length; i++) {
-                data[i][IDX_COL] = data[i][this.pkCol];
+                data[i][IDX_COL] = data[i][this.pkCol].toString();
               }
 
               const nextRow = oraFirstRow + data.length;
@@ -338,6 +349,8 @@ class AgGrid extends HTMLElement {
               );
               params.failCallback();
             }
+          } else {
+            apex.debug.info('No need to fetch from oracle');
           }
 
           const lastRow = this.fetchedAllDbRows
@@ -363,7 +376,7 @@ class AgGrid extends HTMLElement {
           apex.debug.error(
             `Error fetching data from region #${
               this.regionId
-            }. Err => ${JSON.stringify(err)}`
+            }. Err => ${JSON.stringify(err)}, ${err}`
           );
           params.failCallback();
         }
@@ -406,6 +419,31 @@ class AgGrid extends HTMLElement {
     return { data: dataMap, pkCol: this.pkCol, pkIds };
   }
 
+  /**
+   * Because the infinite scrolling model relies on the server as data source
+   * it is not as trivial to change the amount of rows in the client
+   *
+   * This function gets calles when a change to the amount of rows is triggered.
+   * It will clear the cash load all the rows again (from client side chache) and redraw the grid
+   * to get the correct rows.
+   */
+  #refreshDataAndRedraw() {
+    // when data is loaded we want to redraw the grid
+    // this is necessary as row IDs are not in sync without the redraw
+    this.gridNode.addEventListener(
+      DATA_LOAD_EVENT,
+      () => {
+        setTimeout(() => {
+          this.gridOptions.api.redrawRows();
+        }, 0);
+      },
+      { once: true }
+    );
+
+    // get grid to refresh the data
+    gridOptions.api.refreshInfiniteCache();
+  }
+
   #markRowDeleted(rowId) {
     apex.debug.info(`Marking row ${rowId} as deleted`);
 
@@ -420,6 +458,7 @@ class AgGrid extends HTMLElement {
       }
 
       const { data } = rowNode;
+      this.originalState.set(rowId, data);
       data[ROW_ACITON] = 'D';
       this.changes.set(rowId, data);
     }
@@ -431,15 +470,23 @@ class AgGrid extends HTMLElement {
     this.markChanges();
   }
 
+  #isMarkedForDeletion(rowId) {
+    if (this.changes.has(rowId)) {
+      const row = this.changes.get(rowId);
+      return row[ROW_ACITON] === 'D';
+    }
+    return false;
+  }
+
   #createRow() {
     const row = {};
 
     this.gridOptions.columnApi.getAllDisplayedColumns().forEach((col) => {
       // @ts-ignore
-      row[col.colId] = null;
+      row[col.colId] = undefined;
     });
 
-    row[IDX_COL] = new Date().getTime();
+    row[IDX_COL] = new Date().getTime().toString();
 
     return row;
   }
@@ -468,12 +515,40 @@ class AgGrid extends HTMLElement {
       gridOptions.api.setRowCount(rowCount + 1);
     }
 
-    // get grid to refresh the data
-    gridOptions.api.refreshInfiniteCache();
+    this.#refreshDataAndRedraw();
 
     setTimeout(() => {
       this.focusRow(this.newRows.length - 1);
     }, 300);
+  }
+
+  #revertChanges(rowId) {
+    apex.debug.info(`Reverting changes for row ${rowId}`);
+
+    if (this.changes.has(rowId)) {
+      const row = this.changes.get(rowId);
+      if (row[ROW_ACITON] === 'C') {
+        this.newRows = this.newRows.filter((r) => r[IDX_COL] !== rowId);
+        this.changes.delete(rowId);
+
+        // subtract 1 from row count
+        const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
+        if (maxRowFound) {
+          const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
+          gridOptions.api.setRowCount(rowCount - 1);
+        }
+      } else {
+        this.changes.delete(rowId);
+
+        if (row[ROW_ACITON] === 'D') {
+          $(`#${this.regionId} div[row-id="${rowId}"]`).removeClass(
+            'marked-for-deletion'
+          );
+        }
+      }
+
+      this.#refreshDataAndRedraw();
+    }
   }
 
   #setupContextMenu() {
@@ -496,6 +571,16 @@ class AgGrid extends HTMLElement {
         action: () => {
           this.#markRowDeleted(currRowdId);
         },
+        disabled: () => this.#isMarkedForDeletion(currRowdId),
+      },
+      {
+        type: 'action',
+        label: 'Revert changes',
+        icon: 'fa fa-undo',
+        action: () => {
+          this.#revertChanges(currRowdId);
+        },
+        disabled: () => !this.changes.has(currRowdId),
       },
     ];
 
@@ -506,8 +591,8 @@ class AgGrid extends HTMLElement {
 
     $(`#${this.regionId}`).on('contextmenu', '.ag-row', (e) => {
       e.preventDefault();
-      currRowdId = e.currentTarget.getAttribute('row-id');
-      apex.debug.info('Row id', currRowdId);
+      currRowdId = e.currentTarget.getAttribute('row-id').toString();
+      apex.debug.info('Row id', currRowdId, typeof currRowdId);
       $contextMenu.menu('toggle', e.pageX, e.pageY);
     });
   }
@@ -536,25 +621,11 @@ class AgGrid extends HTMLElement {
     this.newRows = [];
     this.dataCopy = [];
     this.fetchedAllDbRows = false;
-    /*
-    $(`#${this.regionId} .marked-for-deletion`).removeClass(
-      'marked-for-deletion'
-    ); */
 
-    // redraw rows after data refresh done
-    // needed to update row ids for example
-    this.gridNode.addEventListener(
-      DATA_LOAD_EVENT,
-      () => {
-        setTimeout(() => {
-          this.gridOptions.api.redrawRows();
-        }, 0);
-      },
-      { once: true }
-    );
+    this.changes.clear();
+    this.originalState.clear();
 
-    // refetch data
-    this.gridOptions.api.refreshInfiniteCache();
+    this.#refreshDataAndRedraw();
   }
 
   saveSuccess() {
