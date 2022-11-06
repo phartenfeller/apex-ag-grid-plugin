@@ -85,11 +85,11 @@ class AgGrid extends HTMLElement {
 
   // eslint-disable-next-line class-methods-use-this
   #handleChange(event) {
-    const oldData = event.data;
+    const newData = event.data;
     const { field } = event.colDef;
-    const { newValue } = event;
-    const newData = { ...oldData };
-    newData[field] = event.newValue;
+    const { oldValue, newValue } = event;
+    const oldData = { ...newData };
+    oldData[field] = oldValue;
 
     apex.debug.info(
       `onCellEditRequest, updating ${field} to ${newValue} - event => `,
@@ -112,6 +112,7 @@ class AgGrid extends HTMLElement {
 
     // set original state for revert
     if (!this.originalState.has(pkVal)) {
+      apex.debug.info('Setting original state for', pkVal, oldData);
       this.originalState.set(pkVal, oldData);
     }
 
@@ -537,8 +538,15 @@ class AgGrid extends HTMLElement {
           const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
           gridOptions.api.setRowCount(rowCount - 1);
         }
+
+        this.#refreshDataAndRedraw();
       } else {
         this.changes.delete(rowId);
+
+        const oldData = this.originalState.get(rowId);
+        apex.debug.info('Resetting to old data', oldData);
+
+        gridOptions.api.getRowNode(rowId).setData(oldData);
 
         if (row[ROW_ACITON] === 'D') {
           $(`#${this.regionId} div[row-id="${rowId}"]`).removeClass(
@@ -546,8 +554,6 @@ class AgGrid extends HTMLElement {
           );
         }
       }
-
-      this.#refreshDataAndRedraw();
     }
   }
 
