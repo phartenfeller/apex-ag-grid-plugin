@@ -1,6 +1,6 @@
 import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
-import CheckboxRenderer from './gui-components/CheckboxRenderer';
+import components from './gui-components';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
 
@@ -35,9 +35,7 @@ const gridOptions = {
     headerRight: { headerClass: ['ag-right-aligned-header'] },
   },
 
-  components: {
-    checkboxRenderer: CheckboxRenderer,
-  },
+  components,
 };
 
 class AgGrid extends HTMLElement {
@@ -66,6 +64,8 @@ class AgGrid extends HTMLElement {
     this.fetchedAllDbRows = false;
 
     this.boolCols = [];
+
+    this.refreshCols = [];
   }
 
   hasChanges() {
@@ -107,6 +107,14 @@ class AgGrid extends HTMLElement {
     this.changes.set(pkVal, newData);
 
     this.markChanges();
+
+    this.refreshCols.forEach((col) => {
+      this.gridOptions.api.refreshCells({
+        force: true,
+        rowNodes: [event.node],
+        columns: [col],
+      });
+    });
   }
 
   #getGridOptions({ colMetaData }) {
@@ -184,6 +192,14 @@ class AgGrid extends HTMLElement {
           disabled: !col.editable, // disable checkbox if not editable
         };
         this.boolCols.push(col.colname);
+      } else if (col.grid_data_type === 'HTML_Value') {
+        colDef.cellRenderer = 'htmlRenderer';
+        colDef.cellRendererParams = {
+          template: col.htmlTemplate,
+        };
+
+        // add to list of cols that need to be refreshed on change
+        this.refreshCols.push(col.colname);
       }
 
       columnDefs.push(colDef);
