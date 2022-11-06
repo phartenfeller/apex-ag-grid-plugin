@@ -2,28 +2,38 @@
 
 class HtmlRenderer {
   init(params) {
-    this.template = params.template;
+    try {
+      this.template = params.template;
 
-    this.params = params;
+      this.params = params;
 
-    this.div = document.createElement('div');
+      this.div = document.createElement('div');
 
-    if (!this.template) {
-      return;
+      if (!this.template) {
+        return;
+      }
+      const { id } = params.node;
+      if (!id) {
+        return;
+      }
+      this.applyHtml(id);
+    } catch (e) {
+      apex.debug.error(`Could not init HtmlRenderer`, e);
     }
-    const { id } = params.node;
-    if (!id) {
-      return;
-    }
-    this.applyHtml(id);
   }
 
   applyHtml(id) {
-    const row = this.params.api.getRowNode(id);
-    const content = apex.util.applyTemplate(this.template, {
-      placeholders: row.data,
-    });
-    this.div.innerHTML = content;
+    try {
+      const row = this.params.api.getRowNode(id);
+      const content = apex.util.applyTemplate(this.template, {
+        placeholders: row.data,
+      });
+      this.div.innerHTML = content;
+    } catch (e) {
+      apex.debug.warn(
+        `Could not apply html template for column "${this.params.colDef.colId}" and rowId "${this.params.node.id}": ${e} \n\n Template: ${this.template}`
+      );
+    }
   }
 
   getGui() {
@@ -31,12 +41,17 @@ class HtmlRenderer {
   }
 
   refresh(params) {
-    const { id } = params.node;
-    if (!id) {
+    try {
+      const { id } = params.node;
+      if (!id) {
+        return false;
+      }
+      this.applyHtml(id);
+      return true;
+    } catch (e) {
+      apex.debug.error(`Could not refresh HtmlRenderer`, e);
       return false;
     }
-    this.applyHtml(id);
-    return true;
   }
 }
 
