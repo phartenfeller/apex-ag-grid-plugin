@@ -516,7 +516,7 @@ class AgGrid extends HTMLElement {
   #duplicateRow(rowId) {
     apex.debug.info(`Duplicating row ${rowId}`);
 
-    const newRow = this.gridOptions.api.getRowNode(rowId).data;
+    const newRow = { ...this.gridOptions.api.getRowNode(rowId).data }; // create a copy of the row
     newRow[IDX_COL] = getNewRowId();
     newRow[this.pkCol] = undefined; // reset pk val
     this.newRows.push(newRow);
