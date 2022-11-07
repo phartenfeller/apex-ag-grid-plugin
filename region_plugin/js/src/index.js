@@ -3,6 +3,7 @@ import './apex/initRegion';
 import components from './gui-components';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
+import getNewRowId from './util/getNewRowId';
 
 /** @type any */
 const { apex } = window;
@@ -487,25 +488,38 @@ class AgGrid extends HTMLElement {
       row[col.colId] = undefined;
     });
 
-    row[IDX_COL] = new Date().getTime().toString();
+    row[IDX_COL] = getNewRowId();
 
     return row;
   }
 
   #insertRow() {
-    /*
-    const rowNode = this.gridOptions.api.getRowNode(rowId);
-
-    if (!rowNode) {
-      apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
-      return;
-    } */
-    // const { rowIndex } = rowNode;
-    // const insertIndex = where === 'above' ? rowIndex : rowIndex + 1;
-
     const newRow = this.#createRow();
     this.newRows.push(newRow);
-    // this.dataCopy.splice(insertIndex, 0, newRow);
+
+    newRow[ROW_ACITON] = 'C';
+    this.changes.set(newRow[IDX_COL], newRow);
+
+    const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
+    if (maxRowFound) {
+      const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
+      gridOptions.api.setRowCount(rowCount + 1);
+    }
+
+    this.#refreshDataAndRedraw();
+
+    setTimeout(() => {
+      this.focusRow(this.newRows.length - 1);
+    }, 300);
+  }
+
+  #duplicateRow(rowId) {
+    apex.debug.info(`Duplicating row ${rowId}`);
+
+    const newRow = this.gridOptions.api.getRowNode(rowId).data;
+    newRow[IDX_COL] = getNewRowId();
+    newRow[this.pkCol] = undefined; // reset pk val
+    this.newRows.push(newRow);
 
     newRow[ROW_ACITON] = 'C';
     this.changes.set(newRow[IDX_COL], newRow);
@@ -568,6 +582,14 @@ class AgGrid extends HTMLElement {
         icon: 'fa fa-plus',
         action: () => {
           this.#insertRow();
+        },
+      },
+      {
+        type: 'action',
+        label: 'Duplicate row',
+        icon: 'fa fa-clone',
+        action: () => {
+          this.#duplicateRow(currRowdId);
         },
       },
       {
