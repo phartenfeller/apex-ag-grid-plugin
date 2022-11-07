@@ -2,6 +2,10 @@
 
 Implementation of the Community Edition [AG Grid](https://www.ag-grid.com/) component wich enables a more spreadsheet like data editing experience. Internally it uses the [Infinite Row Model](https://www.ag-grid.com/javascript-data-grid/infinite-scrolling/) and can be used as an alternative to the Interactive Grid.
 
+This Plug-In focusses on the editing experience. Thats why I don't intend to implement features for a read only experience like the interactive grid has.
+
+I have not yet decided yet on how search / filter / sort should work. I am currently leaning into doing this client-side only (so only for the already loaded rows) as thousands of rows are horrible to edit anyways. A huge dataset can be filtered before in the query. Select lists or other items could be used to let the user filter a subset of the data (changes need to be saved first of course). If you have comments / ideas feel free to share them.
+
 ![Plugin Demo](./assets/plugin_demo.gif)
 
 [Interactive Demo](https://apex.oracle.com/pls/apex/r/hartenfeller_dev/ag-grid-plugin-demo)
