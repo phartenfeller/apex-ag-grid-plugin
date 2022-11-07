@@ -53,4 +53,6 @@
   border-top-width: 0px !important;
   border-left-width: 0px !important;
   background-color: #f8f8f8;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
