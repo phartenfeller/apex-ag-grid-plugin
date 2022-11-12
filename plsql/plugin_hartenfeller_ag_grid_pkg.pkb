@@ -11,6 +11,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
   , heading_alignment APEX_APPLICATION_PAGE_REG_COLS.attribute_04%type
   , value_alignment   APEX_APPLICATION_PAGE_REG_COLS.value_alignment%type
   , html_template     APEX_APPLICATION_PAGE_REG_COLS.attribute_05%type
+  , max_col_width     APEX_APPLICATION_PAGE_REG_COLS.attribute_06%type
   );
 
   type tt_col_info is table of t_col_info;
@@ -101,6 +102,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
             , c.attribute_04 as heading_alignment
             , c.value_alignment
             , c.attribute_05 as html_template
+            , c.attribute_06 as max_col_width
           bulk collect into l_col_info_query_tab
           from APEX_APPLICATION_PAGE_REGIONS r 
           join APEX_APPLICATION_PAGE_REG_COLS c
@@ -121,6 +123,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
             , c.attribute_04 as heading_alignment
             , c.value_alignment
             , c.attribute_05 as html_template
+            , c.attribute_06 as max_col_width
           bulk collect into l_col_info_query_tab
           from APEX_APPLICATION_PAGE_REGIONS r 
           join APEX_APPLICATION_PAGE_REG_COLS c
@@ -147,6 +150,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
         apex_json.write('heading_alignment',l_col_info_query_tab(i).heading_alignment); -- "heading_alignment": "..."
         apex_json.write('value_alignment',l_col_info_query_tab(i).value_alignment); -- "value_alignment": "..."
         apex_json.write('htmlTemplate',l_col_info_query_tab(i).html_template); -- "value_alignment": "..."
+        apex_json.write('maxColWidth',l_col_info_query_tab(i).max_col_width); -- "maxColWidth": "..."
         apex_json.close_object; -- }
       end loop;
 

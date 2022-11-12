@@ -195,6 +195,10 @@ class AgGrid extends HTMLElement {
             : '';
       }
 
+      if (col.maxColWidth) {
+        colDef.maxWidth = col.maxColWidth;
+      }
+
       if (col.grid_data_type === 'Checkbox') {
         colDef.cellRenderer = 'checkboxRenderer';
         colDef.editable = false; // only show renderer as we can click the checkbox
