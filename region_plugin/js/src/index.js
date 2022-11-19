@@ -214,6 +214,35 @@ class AgGrid extends HTMLElement {
 
         // add to list of cols that need to be refreshed on change
         this.refreshCols.push(col.colname);
+      } else if (col.grid_data_type === 'Dynamically_Computed_Value') {
+        try {
+          let __INT_FC;
+          // eslint-disable-next-line no-eval
+          eval(`__INT_FC = ${col.jsComputedValCode};`);
+          colDef.valueGetter = (params) => {
+            // I don't know why, in some examples I get rows with no id and data
+            // Skip those rows
+            if (!params.node.id) return '';
+
+            // wrap in try catch to prevent errors from crashing the grid
+            try {
+              return __INT_FC(params);
+            } catch (e) {
+              apex.debug.error(
+                `Cannot evaluate ${
+                  col.colname
+                } value for following row: ${JSON.stringify(params.data)}`,
+                e
+              );
+              return 'Error computing value';
+            }
+          };
+        } catch (e) {
+          apex.debug.error(
+            `Invalid computation function for ${col.colname}`,
+            e
+          );
+        }
       }
 
       columnDefs.push(colDef);
