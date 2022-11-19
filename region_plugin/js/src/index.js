@@ -243,6 +243,9 @@ class AgGrid extends HTMLElement {
             e
           );
         }
+
+        types.push('nonEdit');
+        cellClasses.push('xag-read-only-cell');
       }
 
       columnDefs.push(colDef);
