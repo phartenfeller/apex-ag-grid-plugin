@@ -66,8 +66,8 @@ class AgGrid extends HTMLElement {
     this.fetchedAllDbRows = false;
 
     this.boolCols = [];
-
     this.refreshCols = [];
+    this.computedCols = [];
   }
 
   hasChanges() {
@@ -246,6 +246,8 @@ class AgGrid extends HTMLElement {
 
         types.push('nonEdit');
         cellClasses.push('xag-read-only-cell');
+
+        this.computedCols.push(col.colname);
       }
 
       columnDefs.push(colDef);
@@ -448,9 +450,24 @@ class AgGrid extends HTMLElement {
 
     const pkIds = data.map((row) => row[IDX_COL]);
     const dataMap = {};
-    data.forEach((row) => {
-      dataMap[row[IDX_COL]] = row;
-    });
+
+    if (this.computedCols.length === 0) {
+      data.forEach((row) => {
+        dataMap[row[IDX_COL]] = row;
+      });
+    } else {
+      // computed cols are not in the data, so we need to fetch them from the grid manually
+      data.forEach((row) => {
+        const rowdata = { ...row }; // copy
+        const rowNode = this.gridOptions.api.getRowNode(row[IDX_COL]);
+
+        this.computedCols.forEach((col) => {
+          rowdata[col] = this.gridOptions.api.getValue(col, rowNode);
+        });
+
+        dataMap[row[IDX_COL]] = rowdata;
+      });
+    }
 
     apex.debug.info('Saving data', dataMap);
 
