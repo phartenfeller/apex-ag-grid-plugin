@@ -1,20 +1,45 @@
 create or replace package body plugin_hartenfeller_ag_grid_pkg as 
 
   type t_col_info is record (
-    name              APEX_APPLICATION_PAGE_REG_COLS.name%type
-  , data_type         APEX_APPLICATION_PAGE_REG_COLS.data_type%type
-  , is_visible        number(1,0)
-  , heading           APEX_APPLICATION_PAGE_REG_COLS.heading%type
-  , editable          number(1,0)
-  , grid_data_type    APEX_APPLICATION_PAGE_REG_COLS.attribute_02%type
-  , number_format     APEX_APPLICATION_PAGE_REG_COLS.attribute_03%type
-  , heading_alignment APEX_APPLICATION_PAGE_REG_COLS.attribute_04%type
-  , value_alignment   APEX_APPLICATION_PAGE_REG_COLS.value_alignment%type
-  , html_template     APEX_APPLICATION_PAGE_REG_COLS.attribute_05%type
-  , max_col_width     APEX_APPLICATION_PAGE_REG_COLS.attribute_06%type
+    name                  APEX_APPLICATION_PAGE_REG_COLS.name%type
+  , data_type             APEX_APPLICATION_PAGE_REG_COLS.data_type%type
+  , is_visible            number(1,0)
+  , heading               APEX_APPLICATION_PAGE_REG_COLS.heading%type
+  , editable              number(1,0)
+  , grid_data_type        APEX_APPLICATION_PAGE_REG_COLS.attribute_02%type
+  , number_format         APEX_APPLICATION_PAGE_REG_COLS.attribute_03%type
+  , heading_alignment     APEX_APPLICATION_PAGE_REG_COLS.attribute_04%type
+  , value_alignment       APEX_APPLICATION_PAGE_REG_COLS.value_alignment%type
+  , html_template         APEX_APPLICATION_PAGE_REG_COLS.attribute_05%type
+  , max_col_width         APEX_APPLICATION_PAGE_REG_COLS.attribute_06%type
+  , js_computed_val_code  APEX_APPLICATION_PAGE_REG_COLS.attribute_07%type
   );
 
   type tt_col_info is table of t_col_info;
+
+  procedure log_render_parameters (
+    pi_region in apex_plugin.t_region
+  )
+  is
+  begin
+      if apex_application.g_debug
+      then
+          apex_debug.message('---------------');
+          apex_debug.message('Render Parameters');
+          apex_debug.message('---------------');
+          apex_debug.message('p_region.static_id: %s', pi_region.static_id);
+          apex_debug.message('ajax_items_to_submit: %s', pi_region.ajax_items_to_submit);
+          apex_debug.message('attribute_01: %s', pi_region.attribute_01);
+          apex_debug.message('attribute_02: %s', pi_region.attribute_02);
+          apex_debug.message('attribute_03: %s', pi_region.attribute_03);
+
+          apex_debug.message('g_x01', APEX_APPLICATION.g_x01);
+
+          apex_debug.message('---------------');
+          apex_debug.message('EOF Parameters');
+          apex_debug.message('---------------');
+      end if;
+  end log_render_parameters;
 
   function render_region   (
     p_region              in apex_plugin.t_region
@@ -80,6 +105,8 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     , p_region => p_region
     );
 
+    log_render_parameters(p_region);
+
     l_methods := APEX_APPLICATION.g_x01 ;
     apex_debug.info( apex_string.format('Calling AJAX with methods => %0', l_methods ) );
 
@@ -103,6 +130,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
             , c.value_alignment
             , c.attribute_05 as html_template
             , c.attribute_06 as max_col_width
+            , c.attribute_07 as js_computed_val_code
           bulk collect into l_col_info_query_tab
           from APEX_APPLICATION_PAGE_REGIONS r 
           join APEX_APPLICATION_PAGE_REG_COLS c
@@ -124,6 +152,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
             , c.value_alignment
             , c.attribute_05 as html_template
             , c.attribute_06 as max_col_width
+            , c.attribute_07 as js_computed_val_code
           bulk collect into l_col_info_query_tab
           from APEX_APPLICATION_PAGE_REGIONS r 
           join APEX_APPLICATION_PAGE_REG_COLS c
@@ -151,6 +180,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
         apex_json.write('value_alignment',l_col_info_query_tab(i).value_alignment); -- "value_alignment": "..."
         apex_json.write('htmlTemplate',l_col_info_query_tab(i).html_template); -- "value_alignment": "..."
         apex_json.write('maxColWidth',l_col_info_query_tab(i).max_col_width); -- "maxColWidth": "..."
+        apex_json.write('jsComputedValCode',l_col_info_query_tab(i).js_computed_val_code); -- "jsComputedValCode": "..."
         apex_json.close_object; -- }
       end loop;
 
