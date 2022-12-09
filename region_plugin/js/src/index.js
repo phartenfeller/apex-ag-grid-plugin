@@ -624,8 +624,24 @@ class AgGrid extends HTMLElement {
     }
   }
 
+  #copyCell(rowId, colId) {
+    const rowNode = this.gridOptions.api.getRowNode(rowId);
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
+      return;
+    }
+
+    const { data } = rowNode;
+    const cellValue = data[colId];
+
+    apex.debug.info(`Copying cell value ${cellValue} from row ${rowId}`);
+
+    navigator.clipboard.writeText(cellValue);
+  }
+
   #setupContextMenu() {
     let currRowdId = null;
+    let currColId = null;
     const $contextMenu = $(`#${this.contextMenuId}`);
 
     const menuList = [
@@ -663,6 +679,14 @@ class AgGrid extends HTMLElement {
         },
         disabled: () => !this.changes.has(currRowdId),
       },
+      {
+        type: 'action',
+        label: 'Copy cell',
+        icon: 'fa fa-copy',
+        action: () => {
+          this.#copyCell(currRowdId, currColId);
+        },
+      },
     ];
 
     $contextMenu.menu({
@@ -670,10 +694,15 @@ class AgGrid extends HTMLElement {
       items: menuList,
     });
 
-    $(`#${this.regionId}`).on('contextmenu', '.ag-row', (e) => {
+    $(`#${this.regionId}`).on('contextmenu', '.ag-cell', (e) => {
       e.preventDefault();
-      currRowdId = e.currentTarget.getAttribute('row-id').toString();
+      currRowdId = e.currentTarget
+        .closest('.ag-row')
+        .getAttribute('row-id')
+        .toString(); // e.currentTarget.getAttribute('row-id').toString();
+      currColId = e.currentTarget.getAttribute('col-id');
       apex.debug.info('Row id', currRowdId, typeof currRowdId);
+      apex.debug.info('Col id', currColId, typeof currColId);
       $contextMenu.menu('toggle', e.pageX, e.pageY);
     });
   }
