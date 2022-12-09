@@ -1,8 +1,10 @@
 import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
+import { COPY_INDICATOR_CLASS } from './constants';
 import components from './gui-components';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
+import clearCopyIndicator from './util/clearCopyIndicator';
 import getNewRowId from './util/getNewRowId';
 
 /** @type any */
@@ -624,7 +626,7 @@ class AgGrid extends HTMLElement {
     }
   }
 
-  #copyCell(rowId, colId) {
+  #copyCell(rowId, colId, clickedColElement) {
     const rowNode = this.gridOptions.api.getRowNode(rowId);
     if (!rowNode) {
       apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
@@ -637,11 +639,15 @@ class AgGrid extends HTMLElement {
     apex.debug.info(`Copying cell value ${cellValue} from row ${rowId}`);
 
     navigator.clipboard.writeText(cellValue);
+
+    clearCopyIndicator(this.regionId);
+    clickedColElement.classList.add(COPY_INDICATOR_CLASS);
   }
 
   #setupContextMenu() {
     let currRowdId = null;
     let currColId = null;
+    let currColElement = null;
     const $contextMenu = $(`#${this.contextMenuId}`);
 
     const menuList = [
@@ -684,7 +690,7 @@ class AgGrid extends HTMLElement {
         label: 'Copy cell',
         icon: 'fa fa-copy',
         action: () => {
-          this.#copyCell(currRowdId, currColId);
+          this.#copyCell(currRowdId, currColId, currColElement);
         },
       },
     ];
@@ -696,6 +702,7 @@ class AgGrid extends HTMLElement {
 
     $(`#${this.regionId}`).on('contextmenu', '.ag-cell', (e) => {
       e.preventDefault();
+      currColElement = e.currentTarget;
       currRowdId = e.currentTarget
         .closest('.ag-row')
         .getAttribute('row-id')
