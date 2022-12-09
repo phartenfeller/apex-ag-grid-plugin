@@ -1,10 +1,9 @@
 import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
 import './apex/initRegion';
-import { COPY_INDICATOR_CLASS } from './constants';
 import components from './gui-components';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
-import clearCopyIndicator from './util/clearCopyIndicator';
+import { copyValue } from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
 
 /** @type any */
@@ -636,12 +635,16 @@ class AgGrid extends HTMLElement {
     const { data } = rowNode;
     const cellValue = data[colId];
 
-    apex.debug.info(`Copying cell value ${cellValue} from row ${rowId}`);
-
-    navigator.clipboard.writeText(cellValue);
-
-    clearCopyIndicator(this.regionId);
-    clickedColElement.classList.add(COPY_INDICATOR_CLASS);
+    apex.debug.info(
+      `Copying cell value ${cellValue} from row ${rowId}, col ${colId}`
+    );
+    copyValue({
+      value: cellValue,
+      rowId,
+      colId,
+      clickedColElement,
+      regionId: this.regionId,
+    });
   }
 
   #setupContextMenu() {
