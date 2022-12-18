@@ -11,10 +11,9 @@ import {
 } from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
 import {
-  getCopyShortcutKeyCodes,
-  getCopyShortcutText,
-  getPasteShortcutKeyCodes,
-  getPasteShortcutText
+  getCopyShortcutText, getPasteShortcutText,
+  isCopyKeyCombo,
+  isPasteKeyCombo
 } from './util/keyboardShortcutHelper';
 
 /** @type any */
@@ -816,14 +815,12 @@ class AgGrid extends HTMLElement {
 
   #handleKeyPress(e) {
     apex.debug.info('KeyPressed', e.event.key, e);
-    const copyCodes = getCopyShortcutKeyCodes();
-    const pasteCodes = getPasteShortcutKeyCodes();
 
     if (e.event.key === 'Escape') {
       clearCopyIndicator(this.regionId);
-    } else if (e.event.key === copyCodes.key && e.event[copyCodes.modifier]) {
+    } else if (isCopyKeyCombo(e.event)) {
       this.#copyCell(e.node.id, e.column.colId, e.event.target);
-    } else if (e.event.key === pasteCodes.key && e.event[pasteCodes.modifier]) {
+    } else if (isPasteKeyCombo(e.event)) {
       this.#pasteCell(e.node.id, e.column.colId, e.event.target);
     }
   }

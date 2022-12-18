@@ -18,25 +18,23 @@
 const isMac = false; // getIsMac();
 
 function getOsModifierObject() {
-  return isMac ? { modifier: 'metaKey' } : { modifier: 'ctrlKey' };
+  return isMac ? 'metaKey' : 'ctrlKey';
 }
 
 export function getCopyShortcutText() {
   return isMac ? '⌘+C' : 'Ctrl+C';
 }
 
-export function getCopyShortcutKeyCodes() {
-  const obj = getOsModifierObject();
-  obj.key = 'c';
-  return obj;
+export function isCopyKeyCombo(e) {
+  const mod = getOsModifierObject();
+  return e.key === 'c' && e[mod] === true;
 }
 
 export function getPasteShortcutText() {
   return isMac ? '⌘+V' : 'Ctrl+V';
 }
 
-export function getPasteShortcutKeyCodes() {
-  const obj = getOsModifierObject();
-  obj.key = 'v';
-  return obj;
+export function isPasteKeyCombo(e) {
+  const mod = getOsModifierObject();
+  return e.key === 'v' && e[mod] === true;
 }
