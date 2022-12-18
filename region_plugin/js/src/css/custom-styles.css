@@ -3,8 +3,6 @@
 
   transition: background-color 125ms ease-in-out;
   transition: opacity 125ms ease-in-out;
-
-  background: white;
 }
 
 .ag-row.marked-for-deletion .ag-cell {

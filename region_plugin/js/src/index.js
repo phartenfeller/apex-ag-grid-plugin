@@ -10,6 +10,12 @@ import {
   markPaste
 } from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
+import {
+  getCopyShortcutKeyCodes,
+  getCopyShortcutText,
+  getPasteShortcutKeyCodes,
+  getPasteShortcutText
+} from './util/keyboardShortcutHelper';
 
 /** @type any */
 const { apex } = window;
@@ -64,6 +70,7 @@ class AgGrid extends HTMLElement {
     this.originalState = new Map();
 
     this.markedChanges = false;
+    this.regionElement = undefined;
 
     // unfortunately necessary for inserts...
     // see https://www.ag-grid.com/javascript-data-grid/infinite-scrolling/#example-using-cache-api-methods
@@ -270,6 +277,8 @@ class AgGrid extends HTMLElement {
     const boundHandleChange = this.#handleChange.bind(this);
     gridOptions.onCellValueChanged = boundHandleChange;
 
+    gridOptions.onCellKeyPress = this.#handleKeyPress.bind(this);
+
     return gridOptions;
   }
 
@@ -292,6 +301,7 @@ class AgGrid extends HTMLElement {
       colMetaData: res.colMetaData,
     });
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
+    this.regionElement = document.querySelector(`#${this.regionId}`);
 
     const dataSource = {
       rowCount: undefined, // behave as infinite scroll
@@ -430,7 +440,6 @@ class AgGrid extends HTMLElement {
     };
 
     this.gridOptions.api.setDatasource(dataSource);
-
     // this.gridOptions.api.setRowData(res.data);
   }
 
@@ -719,6 +728,9 @@ class AgGrid extends HTMLElement {
         disabled: () => this.#isMarkedForDeletion(currRowdId),
       },
       {
+        type: 'separator',
+      },
+      {
         type: 'action',
         label: 'Revert changes',
         icon: 'fa fa-undo',
@@ -734,6 +746,7 @@ class AgGrid extends HTMLElement {
         action: () => {
           this.#copyCell(currRowdId, currColId, currColElement);
         },
+        accelerator: getCopyShortcutText(),
       },
       {
         type: 'action',
@@ -742,6 +755,7 @@ class AgGrid extends HTMLElement {
         action: () => {
           this.#pasteCell(currRowdId, currColId, currColElement);
         },
+        accelerator: getPasteShortcutText(),
       },
     ];
 
@@ -798,6 +812,20 @@ class AgGrid extends HTMLElement {
   saveSuccess() {
     this.changes.clear();
     this.refresh();
+  }
+
+  #handleKeyPress(e) {
+    apex.debug.info('KeyPressed', e.event.key, e);
+    const copyCodes = getCopyShortcutKeyCodes();
+    const pasteCodes = getPasteShortcutKeyCodes();
+
+    if (e.event.key === 'Escape') {
+      clearCopyIndicator(this.regionId);
+    } else if (e.event.key === copyCodes.key && e.event[copyCodes.modifier]) {
+      this.#copyCell(e.node.id, e.column.colId, e.event.target);
+    } else if (e.event.key === pasteCodes.key && e.event[pasteCodes.modifier]) {
+      this.#pasteCell(e.node.id, e.column.colId, e.event.target);
+    }
   }
 }
 
