@@ -3,7 +3,12 @@ import './apex/initRegion';
 import components from './gui-components';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
-import { copyValue } from './util/copyHelper';
+import {
+  clearCopyIndicator,
+  copyValue,
+  getClipboardText,
+  markPaste
+} from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
 
 /** @type any */
@@ -647,6 +652,40 @@ class AgGrid extends HTMLElement {
     });
   }
 
+  async #pasteCell(currRowdId, currColId, clickedColElement) {
+    const rowNode = this.gridOptions.api.getRowNode(currRowdId);
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${currRowdId} in the grid.`);
+      return;
+    }
+
+    const { data } = rowNode;
+    const cellValue = data[currColId];
+
+    const clipboard = await getClipboardText();
+    if (clipboard === null || clipboard === undefined || clipboard === '') {
+      apex.debug.info('Clipboard is empty, nothing to paste.');
+      return;
+    }
+    data[currColId] = clipboard;
+
+    rowNode.setData(data);
+    clearCopyIndicator(this.regionId);
+    markPaste(clickedColElement);
+
+    /*
+    this.gridOptions.api.refreshCells({
+      force: true,
+      rowNodes: [rowNode],
+      columns: [currRowdId],
+    });
+    */
+
+    apex.debug.info(
+      `Pasting cell value ${cellValue} from row ${currRowdId}, col ${currColId}`
+    );
+  }
+
   #setupContextMenu() {
     let currRowdId = null;
     let currColId = null;
@@ -694,6 +733,14 @@ class AgGrid extends HTMLElement {
         icon: 'fa fa-copy',
         action: () => {
           this.#copyCell(currRowdId, currColId, currColElement);
+        },
+      },
+      {
+        type: 'action',
+        label: 'Paste',
+        icon: 'fa fa-paste',
+        action: () => {
+          this.#pasteCell(currRowdId, currColId, currColElement);
         },
       },
     ];

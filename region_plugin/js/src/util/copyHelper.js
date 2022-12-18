@@ -1,9 +1,9 @@
-import { COPY_INDICATOR_CLASS } from '../constants';
+import { COPY_INDICATOR_CLASS, PASTE_INDICATOR_CLASS } from '../constants';
 
 let lastRowId;
 let lastColId;
 
-function clearCopyIndicator(regionId) {
+export function clearCopyIndicator(regionId) {
   document
     .querySelectorAll(`#${regionId} .ag-row .${COPY_INDICATOR_CLASS}`)
     .forEach((el) => {
@@ -32,4 +32,15 @@ export function getLastCopiedInfo() {
     lastRowId,
     lastColId,
   };
+}
+
+export function getClipboardText() {
+  return navigator.clipboard.readText();
+}
+
+export function markPaste(ele) {
+  ele.classList.add(PASTE_INDICATOR_CLASS);
+  setTimeout(() => {
+    ele.classList.remove(PASTE_INDICATOR_CLASS);
+  }, 250);
 }

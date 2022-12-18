@@ -1,8 +1,10 @@
 .ag-cell {
-  -webkit-transition: border 150ms ease-in-out;
-  -moz-transition: border 150ms ease-in-out;
-  -o-transition: border 150ms ease-in-out;
   transition: border 150ms ease-in-out;
+
+  transition: background-color 125ms ease-in-out;
+  transition: opacity 125ms ease-in-out;
+
+  background: white;
 }
 
 .ag-row.marked-for-deletion .ag-cell {
@@ -66,4 +68,10 @@
 
 .xag-copied {
   border: dotted 2px var(--ut-palette-info-text, #4375a4) !important;
+}
+
+.xag-pasted {
+  --xag-pasted-background: var(--ut-palette-info-alt, #d9eefc);
+  background: var(--xag-pasted-background) !important;
+  opacity: 50%;
 }
