@@ -3,6 +3,10 @@ import { COPY_INDICATOR_CLASS, PASTE_INDICATOR_CLASS } from '../constants';
 let lastRowId;
 let lastColId;
 
+export function getLastCopiedColId() {
+  return lastColId;
+}
+
 export function clearCopyIndicator(regionId) {
   document
     .querySelectorAll(`#${regionId} .ag-row .${COPY_INDICATOR_CLASS}`)

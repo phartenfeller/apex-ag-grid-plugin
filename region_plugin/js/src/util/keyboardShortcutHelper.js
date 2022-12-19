@@ -38,3 +38,12 @@ export function isPasteKeyCombo(e) {
   const mod = getOsModifierObject();
   return e.key === 'v' && e[mod] === true;
 }
+
+export function getSelectionPasteShortcutText() {
+  return isMac ? '⌘+Shift+V' : 'Ctrl+Shift+V';
+}
+
+export function isSelectionPasteKeyCombo(e) {
+  const mod = getOsModifierObject();
+  return e.key.toLowerCase() === 'v' && e[mod] === true && e.shiftKey === true;
+}

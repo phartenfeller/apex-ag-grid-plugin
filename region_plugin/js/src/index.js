@@ -7,13 +7,16 @@ import {
   clearCopyIndicator,
   copyValue,
   getClipboardText,
+  getLastCopiedColId,
   markPaste
 } from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
 import {
-  getCopyShortcutText, getPasteShortcutText,
+  getCopyShortcutText,
+  getPasteShortcutText,
+  getSelectionPasteShortcutText,
   isCopyKeyCombo,
-  isPasteKeyCombo
+  isPasteKeyCombo, isSelectionPasteKeyCombo
 } from './util/keyboardShortcutHelper';
 
 /** @type any */
@@ -672,7 +675,7 @@ class AgGrid extends HTMLElement {
 
     const clipboard = await getClipboardText();
     if (clipboard === null || clipboard === undefined || clipboard === '') {
-      apex.debug.info('Clipboard is empty, nothing to paste.');
+      apex.debug.warn('Clipboard is empty, nothing to paste.');
       return;
     }
     data[currColId] = clipboard;
@@ -692,6 +695,36 @@ class AgGrid extends HTMLElement {
     apex.debug.info(
       `Pasting cell value ${cellValue} from row ${currRowdId}, col ${currColId}`
     );
+  }
+
+  async #pasteSelectedRows() {
+    const clipboard = await getClipboardText();
+    if (clipboard === null || clipboard === undefined || clipboard === '') {
+      apex.debug.warn('Clipboard is empty, nothing to paste.');
+      return;
+    }
+
+    const colId = getLastCopiedColId();
+    if (!colId) {
+      apex.debug.warn(
+        'No column was copied before, can`t determine where to paste.'
+      );
+      return;
+    }
+
+    this.gridOptions.api.getSelectedNodes().forEach((rowNode) => {
+      console.log('rowNode', rowNode);
+      const { data } = rowNode;
+      data[colId] = clipboard;
+      rowNode.setData(data);
+
+      const element = this.regionElement.querySelector(
+        `div[row-id="${rowNode.id}"] div[col-id="${colId}"]`
+      );
+      markPaste(element);
+    });
+
+    clearCopyIndicator(this.regionId);
   }
 
   #setupContextMenu() {
@@ -755,6 +788,15 @@ class AgGrid extends HTMLElement {
           this.#pasteCell(currRowdId, currColId, currColElement);
         },
         accelerator: getPasteShortcutText(),
+      },
+      {
+        type: 'action',
+        label: 'Paste to selected rows',
+        icon: 'fa fa-paste fam-check fam-is-disabled',
+        action: () => {
+          this.#pasteSelectedRows();
+        },
+        accelerator: getSelectionPasteShortcutText(),
       },
     ];
 
@@ -820,6 +862,8 @@ class AgGrid extends HTMLElement {
       clearCopyIndicator(this.regionId);
     } else if (isCopyKeyCombo(e.event)) {
       this.#copyCell(e.node.id, e.column.colId, e.event.target);
+    } else if (isSelectionPasteKeyCombo(e.event)) {
+      this.#pasteSelectedRows();
     } else if (isPasteKeyCombo(e.event)) {
       this.#pasteCell(e.node.id, e.column.colId, e.event.target);
     }
