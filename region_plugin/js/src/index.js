@@ -3,7 +3,21 @@ import './apex/initRegion';
 import components from './gui-components';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
+import {
+  clearCopyIndicator,
+  copyValue,
+  getClipboardText,
+  getLastCopiedColId,
+  markPaste
+} from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
+import {
+  getCopyShortcutText,
+  getPasteShortcutText,
+  getSelectionPasteShortcutText,
+  isCopyKeyCombo,
+  isPasteKeyCombo, isSelectionPasteKeyCombo
+} from './util/keyboardShortcutHelper';
 
 /** @type any */
 const { apex } = window;
@@ -58,6 +72,7 @@ class AgGrid extends HTMLElement {
     this.originalState = new Map();
 
     this.markedChanges = false;
+    this.regionElement = undefined;
 
     // unfortunately necessary for inserts...
     // see https://www.ag-grid.com/javascript-data-grid/infinite-scrolling/#example-using-cache-api-methods
@@ -264,6 +279,8 @@ class AgGrid extends HTMLElement {
     const boundHandleChange = this.#handleChange.bind(this);
     gridOptions.onCellValueChanged = boundHandleChange;
 
+    gridOptions.onCellKeyPress = this.#handleKeyPress.bind(this);
+
     return gridOptions;
   }
 
@@ -286,6 +303,7 @@ class AgGrid extends HTMLElement {
       colMetaData: res.colMetaData,
     });
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
+    this.regionElement = document.querySelector(`#${this.regionId}`);
 
     const dataSource = {
       rowCount: undefined, // behave as infinite scroll
@@ -424,7 +442,6 @@ class AgGrid extends HTMLElement {
     };
 
     this.gridOptions.api.setDatasource(dataSource);
-
     // this.gridOptions.api.setRowData(res.data);
   }
 
@@ -624,8 +641,96 @@ class AgGrid extends HTMLElement {
     }
   }
 
+  #copyCell(rowId, colId, clickedColElement) {
+    const rowNode = this.gridOptions.api.getRowNode(rowId);
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
+      return;
+    }
+
+    const { data } = rowNode;
+    const cellValue = data[colId];
+
+    apex.debug.info(
+      `Copying cell value ${cellValue} from row ${rowId}, col ${colId}`
+    );
+    copyValue({
+      value: cellValue,
+      rowId,
+      colId,
+      clickedColElement,
+      regionId: this.regionId,
+    });
+  }
+
+  async #pasteCell(currRowdId, currColId, clickedColElement) {
+    const rowNode = this.gridOptions.api.getRowNode(currRowdId);
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${currRowdId} in the grid.`);
+      return;
+    }
+
+    const { data } = rowNode;
+    const cellValue = data[currColId];
+
+    const clipboard = await getClipboardText();
+    if (clipboard === null || clipboard === undefined || clipboard === '') {
+      apex.debug.warn('Clipboard is empty, nothing to paste.');
+      return;
+    }
+    data[currColId] = clipboard;
+
+    rowNode.setData(data);
+    clearCopyIndicator(this.regionId);
+    markPaste(clickedColElement);
+
+    /*
+    this.gridOptions.api.refreshCells({
+      force: true,
+      rowNodes: [rowNode],
+      columns: [currRowdId],
+    });
+    */
+
+    apex.debug.info(
+      `Pasting cell value ${cellValue} from row ${currRowdId}, col ${currColId}`
+    );
+  }
+
+  async #pasteSelectedRows() {
+    const clipboard = await getClipboardText();
+    if (clipboard === null || clipboard === undefined || clipboard === '') {
+      apex.debug.warn('Clipboard is empty, nothing to paste.');
+      return;
+    }
+
+    const colId = getLastCopiedColId();
+    if (!colId) {
+      apex.debug.warn(
+        'No column was copied before, can`t determine where to paste.'
+      );
+      return;
+    }
+
+    this.gridOptions.api.getSelectedNodes().forEach((rowNode) => {
+      console.log('rowNode', rowNode);
+      const { data } = rowNode;
+      data[colId] = clipboard;
+      rowNode.setData(data);
+
+      const element = this.regionElement.querySelector(
+        `div[row-id="${rowNode.id}"] div[col-id="${colId}"]`
+      );
+      markPaste(element);
+    });
+
+    clearCopyIndicator(this.regionId);
+  }
+
   #setupContextMenu() {
     let currRowdId = null;
+    let currColId = null;
+    let currColElement = null;
     const $contextMenu = $(`#${this.contextMenuId}`);
 
     const menuList = [
@@ -655,6 +760,9 @@ class AgGrid extends HTMLElement {
         disabled: () => this.#isMarkedForDeletion(currRowdId),
       },
       {
+        type: 'separator',
+      },
+      {
         type: 'action',
         label: 'Revert changes',
         icon: 'fa fa-undo',
@@ -663,6 +771,33 @@ class AgGrid extends HTMLElement {
         },
         disabled: () => !this.changes.has(currRowdId),
       },
+      {
+        type: 'action',
+        label: 'Copy cell',
+        icon: 'fa fa-copy',
+        action: () => {
+          this.#copyCell(currRowdId, currColId, currColElement);
+        },
+        accelerator: getCopyShortcutText(),
+      },
+      {
+        type: 'action',
+        label: 'Paste',
+        icon: 'fa fa-paste',
+        action: () => {
+          this.#pasteCell(currRowdId, currColId, currColElement);
+        },
+        accelerator: getPasteShortcutText(),
+      },
+      {
+        type: 'action',
+        label: 'Paste to selected rows',
+        icon: 'fa fa-paste fam-check fam-is-disabled',
+        action: () => {
+          this.#pasteSelectedRows();
+        },
+        accelerator: getSelectionPasteShortcutText(),
+      },
     ];
 
     $contextMenu.menu({
@@ -670,10 +805,16 @@ class AgGrid extends HTMLElement {
       items: menuList,
     });
 
-    $(`#${this.regionId}`).on('contextmenu', '.ag-row', (e) => {
+    $(`#${this.regionId}`).on('contextmenu', '.ag-cell', (e) => {
       e.preventDefault();
-      currRowdId = e.currentTarget.getAttribute('row-id').toString();
+      currColElement = e.currentTarget;
+      currRowdId = e.currentTarget
+        .closest('.ag-row')
+        .getAttribute('row-id')
+        .toString(); // e.currentTarget.getAttribute('row-id').toString();
+      currColId = e.currentTarget.getAttribute('col-id');
       apex.debug.info('Row id', currRowdId, typeof currRowdId);
+      apex.debug.info('Col id', currColId, typeof currColId);
       $contextMenu.menu('toggle', e.pageX, e.pageY);
     });
   }
@@ -712,6 +853,20 @@ class AgGrid extends HTMLElement {
   saveSuccess() {
     this.changes.clear();
     this.refresh();
+  }
+
+  #handleKeyPress(e) {
+    apex.debug.info('KeyPressed', e.event.key, e);
+
+    if (e.event.key === 'Escape') {
+      clearCopyIndicator(this.regionId);
+    } else if (isCopyKeyCombo(e.event)) {
+      this.#copyCell(e.node.id, e.column.colId, e.event.target);
+    } else if (isSelectionPasteKeyCombo(e.event)) {
+      this.#pasteSelectedRows();
+    } else if (isPasteKeyCombo(e.event)) {
+      this.#pasteCell(e.node.id, e.column.colId, e.event.target);
+    }
   }
 }
 

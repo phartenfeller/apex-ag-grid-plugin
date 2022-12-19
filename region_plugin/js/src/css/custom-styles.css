@@ -1,3 +1,10 @@
+.ag-cell {
+  transition: border 150ms ease-in-out;
+
+  transition: background-color 125ms ease-in-out;
+  transition: opacity 125ms ease-in-out;
+}
+
 .ag-row.marked-for-deletion .ag-cell {
   text-decoration: line-through;
   background-color: var(--a-gv-deleted-background-color, #f9f9f9);
@@ -55,4 +62,14 @@
   background-color: #f8f8f8;
   padding-left: 0 !important;
   padding-right: 0 !important;
+}
+
+.xag-copied {
+  border: dotted 2px var(--ut-palette-info-text, #4375a4) !important;
+}
+
+.xag-pasted {
+  --xag-pasted-background: var(--ut-palette-info-alt, #d9eefc);
+  background: var(--xag-pasted-background) !important;
+  opacity: 50%;
 }
