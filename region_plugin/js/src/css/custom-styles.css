@@ -11,7 +11,7 @@
 }
 
 .xag-read-only-cell {
-  background-color: #e6e6e666;
+  background-color: var(--a-gv-deleted-background-color, #e6e6e666);
   color: var(--ut-component-text-muted-color, rgba(0, 0, 0, 0.65));
 }
 
@@ -52,16 +52,27 @@
 }
 
 .xag-rownum-col {
-  border-color: #babfc7 !important;
-  border-bottom-width: 1px !important;
-  border-bottom-style: solid !important;
+  border-color: var(
+    --ut-report-header-cell-border-color,
+    var(
+      --ut-report-cell-border-color,
+      var(--ut-component-inner-border-color),
+      #e6e6e6
+    )
+  ) !important;
   border-right-width: 1px !important;
   border-right-style: solid !important;
   border-top-width: 0px !important;
+  border-bottom-width: 0px !important;
   border-left-width: 0px !important;
-  background-color: #f8f8f8;
   padding-left: 0 !important;
   padding-right: 0 !important;
+
+  background-color: var(
+    --ut-report-header-cell-background-color,
+    var(--a-gv-header-background-color),
+    white
+  ) !important;
 }
 
 .xag-copied {

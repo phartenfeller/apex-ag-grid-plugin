@@ -16,7 +16,8 @@ import {
   getPasteShortcutText,
   getSelectionPasteShortcutText,
   isCopyKeyCombo,
-  isPasteKeyCombo, isSelectionPasteKeyCombo
+  isPasteKeyCombo,
+  isSelectionPasteKeyCombo
 } from './util/keyboardShortcutHelper';
 
 /** @type any */
@@ -823,7 +824,7 @@ class AgGrid extends HTMLElement {
     const wrapperNode = document.createElement('div');
 
     this.gridNode = document.createElement('div');
-    this.gridNode.classList.add('ag-theme-alpine');
+    this.gridNode.classList.add('ag-theme-apex');
     this.gridNode.style.height = '500px';
 
     const contextMenuNode = document.createElement('div');
