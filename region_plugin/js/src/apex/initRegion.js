@@ -13,6 +13,18 @@ function _handleError(err, regionId, spinner) {
 }
 */
 
+const colFunctions = {};
+
+function _addComputedColCode({ regionId, colname, fc }) {
+  apex.debug.info(`Add computed col code for region ${regionId}, ${colname}`);
+
+  if (!colFunctions[regionId]) {
+    colFunctions[regionId] = {};
+  }
+
+  colFunctions[regionId][colname] = fc;
+}
+
 function _initPlugin({
   regionId,
   ajaxId,
@@ -42,6 +54,8 @@ function _initPlugin({
   gridElement.focusOnLoad = focusOnLoad === 'Y';
   gridElement.displayRownum = displayRownum === 'Y';
 
+  gridElement.colFunctions = colFunctions[regionId];
+
   document
     .querySelector(`#${regionId}_component_wrapper`)
     .appendChild(gridElement);
@@ -52,6 +66,9 @@ function _initPlugin({
     saveSuccess: () => gridElement.saveSuccess(),
     refresh: () => gridElement.refresh(),
   });
+
+  // empty temporary col functions storage after init
+  colFunctions[regionId] = {};
 }
 
 if (!window.hartenfeller_dev) {
@@ -63,4 +80,5 @@ if (!window.hartenfeller_dev.plugins) {
 
 window.hartenfeller_dev.plugins.ag_grid = {
   initPlugin: _initPlugin,
+  addComputedColCode: _addComputedColCode,
 };
