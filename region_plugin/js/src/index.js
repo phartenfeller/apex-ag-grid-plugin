@@ -65,6 +65,8 @@ class AgGrid extends HTMLElement {
     this.focusOnLoad = this.getAttribute('focusOnLoad') === 'true';
     this.displayRownum = this.getAttribute('displayRownum') === 'true';
 
+    this.colFunctions = this.getAttribute('colFunctions') ?? {};
+
     this.contextMenuId = `${this.regionId}-context-menu`;
 
     this.amountOfRows = 30;
@@ -232,9 +234,6 @@ class AgGrid extends HTMLElement {
         this.refreshCols.push(col.colname);
       } else if (col.grid_data_type === 'Dynamically_Computed_Value') {
         try {
-          let __INT_FC;
-          // eslint-disable-next-line no-eval
-          eval(`__INT_FC = ${col.jsComputedValCode};`);
           colDef.valueGetter = (params) => {
             // I don't know why, in some examples I get rows with no id and data
             // Skip those rows
@@ -242,7 +241,7 @@ class AgGrid extends HTMLElement {
 
             // wrap in try catch to prevent errors from crashing the grid
             try {
-              return __INT_FC(params);
+              return this.colFunctions[col.colname](params); // 'temp..'; // __INT_FC(params);
             } catch (e) {
               apex.debug.error(
                 `Cannot evaluate ${
