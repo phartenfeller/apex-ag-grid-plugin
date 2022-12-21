@@ -714,7 +714,6 @@ class AgGrid extends HTMLElement {
     }
 
     this.gridOptions.api.getSelectedNodes().forEach((rowNode) => {
-      console.log('rowNode', rowNode);
       const { data } = rowNode;
       data[colId] = clipboard;
       rowNode.setData(data);
