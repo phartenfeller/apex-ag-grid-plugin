@@ -2,41 +2,22 @@
 # yarn lockfile v1
 
 
-"@ag-grid-community/all-modules@^27.3.0":
-  version "27.3.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/all-modules/-/all-modules-27.3.0.tgz#5f3883c7316112e2b7145b2b5987bc581980d900"
-  integrity sha512-yH5jH+sJ6niUR5N4MiyOYDUnldcjCRwpDeL82JyGh7/rsxACH026KcxEO+7Gk22CnSeMwUZidGorU2Dj/Na8rg==
+"@ag-grid-community/client-side-row-model@^29.0.0":
+  version "29.0.0"
+  resolved "https://registry.yarnpkg.com/@ag-grid-community/client-side-row-model/-/client-side-row-model-29.0.0.tgz#dcb3fec92681b94d2bdd56f6c8eaeade2a53ba1e"
+  integrity sha512-e+/888QYu/k+UBD74Ke6+e4Fc8/gxXmkcgF7cM4+EB941YDZ9j+gIR6ltI29B8T2n63OwTGWqNkwSooh1ed1nw==
   dependencies:
-    "@ag-grid-community/client-side-row-model" "~27.3.0"
-    "@ag-grid-community/core" "~27.3.0"
-    "@ag-grid-community/csv-export" "~27.3.0"
-    "@ag-grid-community/infinite-row-model" "~27.3.0"
+    "@ag-grid-community/core" "~29.0.0"
 
-"@ag-grid-community/client-side-row-model@~27.3.0":
-  version "27.3.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/client-side-row-model/-/client-side-row-model-27.3.0.tgz#5dec1f59d85e9682c46a3b695d31ecd7a4df5cbd"
-  integrity sha512-t6ggg/SvESsGEC75z62rD/zFeo2DZCKFxw5e0qKweHR106CjBUNMlnfXIIG81qOSXUWGnbbWlrijBbKbyt8aTA==
-  dependencies:
-    "@ag-grid-community/core" "~27.3.0"
+"@ag-grid-community/core@^29.0.0", "@ag-grid-community/core@~29.0.0":
+  version "29.0.0"
+  resolved "https://registry.yarnpkg.com/@ag-grid-community/core/-/core-29.0.0.tgz#b4ef6ac3c05d21e65f83e2c1ed46b1c2bac30f25"
+  integrity sha512-qj5H9tAZtikpjFL9f7VmJLPS8tx/PUfIjt5DPtqDA01GZ9dYt3XwPuHdLKzpA5E9Yevhwk1m+TXCCz5Al7WWSw==
 
-"@ag-grid-community/core@~27.3.0":
-  version "27.3.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/core/-/core-27.3.0.tgz#04599cff5c35d26b970153ec3db66b945f053e57"
-  integrity sha512-77/bE2KdFlFI/ywEP46aSspXtgBteY/OPQyzU/lWqYrG2wC6cLfPSUB60t9e0FiqElwM/Vdcjz0TAjRwhZOPkw==
-
-"@ag-grid-community/csv-export@~27.3.0":
-  version "27.3.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/csv-export/-/csv-export-27.3.0.tgz#6b2fc9090180aa00696b8f1aaf1f0b31f43088b0"
-  integrity sha512-7pR05jEqTdUPAoqEMHxXGh6j0KViGmqLa4uwKmriKzfZOvwlq6umjDmXvPFCRCWfswb9KOqS1iZlGhcWufKApQ==
-  dependencies:
-    "@ag-grid-community/core" "~27.3.0"
-
-"@ag-grid-community/infinite-row-model@~27.3.0":
-  version "27.3.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/infinite-row-model/-/infinite-row-model-27.3.0.tgz#055539af2ecfa999885e52c8fe089ae6da0ba1b3"
-  integrity sha512-hUWQ6YdRrNCDAvSn1bbxvnklIqPx8QGXMjmLVfR47+Gp1aoA1i9OxtA39SlzsZnRqDxZE5eKgwb5uy2+C4vKhA==
-  dependencies:
-    "@ag-grid-community/core" "~27.3.0"
+"@ag-grid-community/styles@^29.0.0":
+  version "29.0.0"
+  resolved "https://registry.yarnpkg.com/@ag-grid-community/styles/-/styles-29.0.0.tgz#07c5013c090aa0cb425580240e6511f1c67cb2e5"
+  integrity sha512-Wl7q1IxhDjwfyPrnEvAT6m107Um/TaMyzJjWrRax9f30QTb7dVMTe6B5/JXq6HPbMrcvQfcAgS6TlpEsJGtVbg==
 
 "@discoveryjs/json-ext@^0.5.0":
   version "0.5.7"

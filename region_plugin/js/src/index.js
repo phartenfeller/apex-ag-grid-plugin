@@ -28,7 +28,7 @@ const $ = apex.jQuery;
 const IDX_COL = '__idx';
 const ROW_ACITON = '__row_action';
 
-/** @type {import('@ag-grid-community/all-modules').GridOptions} */
+/** @type {import('@ag-grid-community/core').GridOptions} */
 const gridOptions = {
   // default col def properties get applied to all columns
   defaultColDef: {
@@ -76,6 +76,8 @@ class AgGrid extends HTMLElement {
 
     this.markedChanges = false;
     this.regionElement = undefined;
+    this.eBody = undefined;
+    this.eViewport = undefined;
 
     // unfortunately necessary for inserts...
     // see https://www.ag-grid.com/javascript-data-grid/infinite-scrolling/#example-using-cache-api-methods
@@ -146,7 +148,7 @@ class AgGrid extends HTMLElement {
   }
 
   #getGridOptions({ colMetaData }) {
-    /** @type {import('@ag-grid-community/all-modules').ColDef[]} */
+    /** @type {import('@ag-grid-community/core').ColDef[]} */
     const columnDefs = [];
 
     // wether to show the row number col
@@ -195,7 +197,7 @@ class AgGrid extends HTMLElement {
         cellClasses.push('xag-center-aligned-cell');
       }
 
-      /** @type {import('@ag-grid-community/all-modules').ColDef} */
+      /** @type {import('@ag-grid-community/core').ColDef} */
       const colDef = {
         colId: col.colname,
         field: col.colname,
@@ -275,6 +277,7 @@ class AgGrid extends HTMLElement {
     gridOptions.infiniteInitialRowCount = this.amountOfRows;
     gridOptions.cacheBlockSize = this.amountOfRows;
     gridOptions.cacheOverflowSize = 1;
+    gridOptions.onBodyScroll = this.#handleScroll.bind(this);
 
     const boundHandleChange = this.#handleChange.bind(this);
     gridOptions.onCellValueChanged = boundHandleChange;
@@ -285,10 +288,11 @@ class AgGrid extends HTMLElement {
   }
 
   #insertRows(newRows) {
-    const rowcount = gridOptions.api?.getDisplayedRowCount();
+    // const rowcount = gridOptions.api?.getDisplayedRowCount();
+    apex.debug.info(`Adding new rows`, newRows);
     this.gridOptions.api.applyTransaction({
-      add: [newRows],
-      addIndex: rowcount,
+      add: newRows,
+      // addIndex: rowcount,
     });
   }
 
@@ -303,7 +307,7 @@ class AgGrid extends HTMLElement {
       pkCol: this.pkCol,
       boolCols: this.boolCols,
     });
-    if (insertRows) {
+    if (newRows?.length > 0 && insertRows) {
       this.#insertRows(newRows);
     }
     return newRows;
@@ -340,6 +344,29 @@ class AgGrid extends HTMLElement {
     }
 
     // this.gridOptions.api.setRowData(res.data);
+  }
+
+  #handleScroll(e) {
+    if (e.direction !== 'vertical') {
+      return;
+    }
+
+    if (!this.eBody) {
+      this.eBody = this.regionElement.querySelector(`div[ref="eBody"]`);
+    }
+
+    const regionHeight = this.eBody.clientHeight;
+
+    if (!this.eViewport) {
+      this.eViewport = this.regionElement.querySelector(`div[ref="eViewport"]`);
+    }
+    const viewportHeight = this.eViewport.clientHeight;
+    const scrollTop = e.top;
+
+    // 200 px to the bottom
+    if (viewportHeight - regionHeight - scrollTop <= 400) {
+      this.#fetchMoreRows();
+    }
   }
 
   focus() {

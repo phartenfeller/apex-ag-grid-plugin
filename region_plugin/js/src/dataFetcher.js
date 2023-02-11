@@ -4,6 +4,8 @@ import { arrayNumToBool } from './util/boolConversions';
 let nextRow = 1;
 let fetchedAllDbRows = false;
 
+let currentlyFetching = false;
+
 async function fetchData({
   apex,
   ajaxId,
@@ -16,7 +18,14 @@ async function fetchData({
 }) {
   if (fetchedAllDbRows) {
     apex.debug.trace(`All rows fetched from oracle`);
+    return [];
   }
+
+  if (currentlyFetching) {
+    return [];
+  }
+
+  currentlyFetching = true;
 
   try {
     const firstRow = nextRow;
@@ -50,28 +59,30 @@ async function fetchData({
       }
 
       if (boolCols.length > 0) {
-        apex.debug.info(`Converting bool cols (${this.boolCols.join(', ')})`);
+        apex.debug.info(`Converting bool cols (${boolCols.join(', ')})`);
 
-        data = arrayNumToBool(data, this.boolCols);
+        data = arrayNumToBool(data, boolCols);
       }
 
       return data;
     }
     apex.debug.error(
-      `Could not fetch data from region #${
-        this.regionId
-      }. Res => ${JSON.stringify(dataRes)}`
+      `Could not fetch data from region #${regionId}. Res => ${JSON.stringify(
+        dataRes
+      )}`
     );
 
     return [];
   } catch (err) {
     apex.debug.error(
-      `Error fetching data from region #${
-        this.regionId
-      }. Err => ${JSON.stringify(err)}, ${err}`
+      `Error fetching data from region #${regionId}. Err => ${JSON.stringify(
+        err
+      )}, ${err}`
     );
 
     return [];
+  } finally {
+    currentlyFetching = false;
   }
 }
 
