@@ -1,8 +1,9 @@
-import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
+import { ajax, AJAX_COL_METADATA } from './apex/ajax';
 import './apex/initRegion';
+import fetchData from './dataFetcher';
 import components from './gui-components';
 import AG_GRID from './initGrid';
-import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
+import { arrayBoolsToNum } from './util/boolConversions';
 import {
   clearCopyIndicator,
   copyValue,
@@ -26,7 +27,6 @@ const $ = apex.jQuery;
 
 const IDX_COL = '__idx';
 const ROW_ACITON = '__row_action';
-const DATA_LOAD_EVENT = 'dataLoadComplete';
 
 /** @type {import('@ag-grid-community/all-modules').GridOptions} */
 const gridOptions = {
@@ -43,7 +43,7 @@ const gridOptions = {
 
   animateRows: true, // have rows animate to new positions when sorted
 
-  rowModelType: 'infinite',
+  rowModelType: 'clientSide',
 
   columnTypes: {
     nonEdit: { editable: false },
@@ -284,6 +284,31 @@ class AgGrid extends HTMLElement {
     return gridOptions;
   }
 
+  #insertRows(newRows) {
+    const rowcount = gridOptions.api?.getDisplayedRowCount();
+    this.gridOptions.api.applyTransaction({
+      add: [newRows],
+      addIndex: rowcount,
+    });
+  }
+
+  async #fetchMoreRows(insertRows = true) {
+    const newRows = await fetchData({
+      apex,
+      ajaxId: this.ajaxId,
+      itemsToSubmit: this.itemsToSubmit,
+      regionId: this.regionId,
+      amountOfRows: this.amountOfRows,
+      IDX_COL,
+      pkCol: this.pkCol,
+      boolCols: this.boolCols,
+    });
+    if (insertRows) {
+      this.#insertRows(newRows);
+    }
+    return newRows;
+  }
+
   async #setupGrid() {
     if (!this.pkCol) {
       apex.debug.error(
@@ -305,143 +330,15 @@ class AgGrid extends HTMLElement {
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
     this.regionElement = document.querySelector(`#${this.regionId}`);
 
-    const dataSource = {
-      rowCount: undefined, // behave as infinite scroll
+    const initialRows = await this.#fetchMoreRows(false);
+    this.gridOptions.api.setRowData(initialRows);
 
-      getRows: async (params) => {
-        try {
-          apex.debug.info(
-            `asking for ${params.startRow} - ${params.endRow}. New rows: ${this.newRows.length}`
-          );
+    if (this.focusOnLoad) {
+      setTimeout(() => {
+        this.focus();
+      }, 100);
+    }
 
-          let toDeliverRows = [];
-          const wantedRows = params.endRow - params.startRow;
-
-          // first deliver new rows
-          if (params.startRow < this.newRows.length) {
-            const subEnd =
-              params.startRow + Math.min(wantedRows, this.newRows.length);
-            apex.debug.info(
-              `Substituting rows from newRows: ${params.startRow} - ${subEnd}`
-            );
-            toDeliverRows.push(...this.newRows.slice(params.startRow, subEnd));
-          }
-
-          apex.debug.info('toDeliverRows after inserted', toDeliverRows);
-
-          const firstWantedDataRow =
-            params.startRow === 0 ? 0 : params.startRow - this.newRows.length;
-          const amountWantedDataRows = wantedRows - toDeliverRows.length;
-
-          // next deliver cached rows
-          if (
-            amountWantedDataRows > 0 &&
-            firstWantedDataRow < this.dataCopy.length
-          ) {
-            const subEnd =
-              firstWantedDataRow +
-              Math.min(amountWantedDataRows, this.dataCopy.length);
-            apex.debug.info(
-              `Substituting rows from dataCopy: ${firstWantedDataRow} - ${subEnd}`
-            );
-            toDeliverRows.push(
-              ...this.dataCopy.slice(firstWantedDataRow, subEnd)
-            );
-          }
-
-          apex.debug.info('toDeliverRows after cache', toDeliverRows);
-
-          const oraFirstRow =
-            params.startRow === 0
-              ? 1 // Oracle starts with 1
-              : params.startRow + 1 - this.newRows.length;
-          const oraAmountOfRows = wantedRows - toDeliverRows.length;
-
-          apex.debug.info(
-            `Fetch oracle? fetchedAllDbRows => ${this.fetchedAllDbRows}, oraAmountOfRows => ${oraAmountOfRows}`
-          );
-          if (!this.fetchedAllDbRows && oraAmountOfRows > 0) {
-            apex.debug.info(
-              `Query from oracle from ${oraFirstRow} #${oraAmountOfRows} rows`
-            );
-
-            const dataRes = await ajax({
-              apex,
-              ajaxId: this.ajaxId,
-              itemsToSubmit: this.itemsToSubmit,
-              regionId: this.regionId,
-              methods: [AJAX_DATA],
-              firstRow: oraFirstRow,
-              amountOfRows: oraAmountOfRows,
-            });
-
-            if (dataRes.data) {
-              const { data } = dataRes;
-              for (let i = 0; i < data.length; i++) {
-                data[i][IDX_COL] = data[i][this.pkCol].toString();
-              }
-
-              const nextRow = oraFirstRow + data.length;
-              apex.debug.info(`next row is ${nextRow}`);
-
-              if (this.focusOnLoad && params.startRow === 0) {
-                setTimeout(() => {
-                  this.focus();
-                }, 100);
-              }
-
-              this.dataCopy.push(...data);
-              toDeliverRows.push(...data);
-
-              if (oraAmountOfRows > data.length) {
-                apex.debug.log(
-                  `Less receaved than requested from oracle => end reached`
-                );
-                this.fetchedAllDbRows = true;
-              }
-            } else {
-              apex.debug.error(
-                `Could not fetch data from region #${
-                  this.regionId
-                }. Res => ${JSON.stringify(dataRes)}`
-              );
-              params.failCallback();
-            }
-          } else {
-            apex.debug.info('No need to fetch from oracle');
-          }
-
-          const lastRow = this.fetchedAllDbRows
-            ? this.dataCopy.length + this.newRows.length
-            : -1;
-
-          apex.debug.info('toDeliverRows after oracle', toDeliverRows);
-          apex.debug.info(`last row is ${lastRow}`);
-
-          if (this.boolCols.length > 0) {
-            apex.debug.info(
-              `Converting bool cols (${this.boolCols.join(', ')})`
-            );
-
-            toDeliverRows = arrayNumToBool(toDeliverRows, this.boolCols);
-          }
-
-          params.successCallback(toDeliverRows, lastRow);
-
-          const event = new Event(DATA_LOAD_EVENT);
-          this.gridNode.dispatchEvent(event);
-        } catch (err) {
-          apex.debug.error(
-            `Error fetching data from region #${
-              this.regionId
-            }. Err => ${JSON.stringify(err)}, ${err}`
-          );
-          params.failCallback();
-        }
-      },
-    };
-
-    this.gridOptions.api.setDatasource(dataSource);
     // this.gridOptions.api.setRowData(res.data);
   }
 
@@ -499,22 +396,22 @@ class AgGrid extends HTMLElement {
    * It will clear the cash load all the rows again (from client side chache) and redraw the grid
    * to get the correct rows.
    */
-  #refreshDataAndRedraw() {
-    // when data is loaded we want to redraw the grid
-    // this is necessary as row IDs are not in sync without the redraw
-    this.gridNode.addEventListener(
-      DATA_LOAD_EVENT,
-      () => {
-        setTimeout(() => {
-          this.gridOptions.api.redrawRows();
-        }, 0);
-      },
-      { once: true }
-    );
+  // #refreshDataAndRedraw() {
+  //   // when data is loaded we want to redraw the grid
+  //   // this is necessary as row IDs are not in sync without the redraw
+  //   this.gridNode.addEventListener(
+  //     DATA_LOAD_EVENT,
+  //     () => {
+  //       setTimeout(() => {
+  //         this.gridOptions.api.redrawRows();
+  //       }, 0);
+  //     },
+  //     { once: true }
+  //   );
 
-    // get grid to refresh the data
-    gridOptions.api.refreshInfiniteCache();
-  }
+  //   // get grid to refresh the data
+  //   gridOptions.api.refreshInfiniteCache();
+  // }
 
   #markRowDeleted(rowId) {
     apex.debug.info(`Marking row ${rowId} as deleted`);
@@ -576,7 +473,7 @@ class AgGrid extends HTMLElement {
       gridOptions.api.setRowCount(rowCount + 1);
     }
 
-    this.#refreshDataAndRedraw();
+    // this.#refreshDataAndRedraw();
 
     setTimeout(() => {
       this.focusRow(this.newRows.length - 1);
@@ -600,7 +497,7 @@ class AgGrid extends HTMLElement {
       gridOptions.api.setRowCount(rowCount + 1);
     }
 
-    this.#refreshDataAndRedraw();
+    // this.#refreshDataAndRedraw();
 
     setTimeout(() => {
       this.focusRow(this.newRows.length - 1);
@@ -623,7 +520,7 @@ class AgGrid extends HTMLElement {
           gridOptions.api.setRowCount(rowCount - 1);
         }
 
-        this.#refreshDataAndRedraw();
+        //  this.#refreshDataAndRedraw();
       } else {
         this.changes.delete(rowId);
 
@@ -846,7 +743,7 @@ class AgGrid extends HTMLElement {
     this.changes.clear();
     this.originalState.clear();
 
-    this.#refreshDataAndRedraw();
+    // this.#refreshDataAndRedraw();
   }
 
   saveSuccess() {

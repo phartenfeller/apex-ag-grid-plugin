@@ -1,4 +1,3 @@
-/** @type any */
 const { apex } = window;
 
 /*

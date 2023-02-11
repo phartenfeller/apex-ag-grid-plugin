@@ -17,7 +17,7 @@ module.exports = {
       filename: 'index.html',
       template: 'index.html',
     }),
-    new MiniCssExtractPlugin(),
+    new MiniCssExtractPlugin({ filename: 'index.css' }),
   ],
   optimization: {
     minimize: false,
@@ -29,12 +29,19 @@ module.exports = {
   },
   devServer: {
     open: false,
-    hot: 'only',
+    client: {
+      webSocketURL: 'ws://localhost:8080/ws',
+    },
+    hot: false,
     liveReload: true,
     static: {
       directory: path.join(__dirname, 'demo'),
       watch: true,
       serveIndex: true,
     },
+    headers: {
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    },
+    allowedHosts: ['localhost', '.phartenfeller.de'],
   },
 };
