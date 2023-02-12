@@ -79,15 +79,11 @@ class AgGrid extends HTMLElement {
     this.eBody = undefined;
     this.eViewport = undefined;
 
-    // unfortunately necessary for inserts...
-    // see https://www.ag-grid.com/javascript-data-grid/infinite-scrolling/#example-using-cache-api-methods
-    this.dataCopy = [];
-    this.newRows = [];
-    this.fetchedAllDbRows = false;
-
     this.boolCols = [];
     this.refreshCols = [];
     this.computedCols = [];
+
+    this.firstEditCol = undefined;
   }
 
   hasChanges() {
@@ -181,6 +177,8 @@ class AgGrid extends HTMLElement {
       if (!col.editable) {
         types.push('nonEdit');
         cellClasses.push('xag-read-only-cell');
+      } else if (!this.firstEditCol) {
+        this.firstEditCol = col.colname;
       }
 
       if (col.heading_alignment === 'RIGHT') {
@@ -269,6 +267,11 @@ class AgGrid extends HTMLElement {
 
       columnDefs.push(colDef);
     });
+
+    // no editable columns, set first col as firstEditCol (for focus)
+    if (!this.firstEditCol) {
+      this.firstEditCol = columnDefs[0].colId;
+    }
 
     gridOptions.columnDefs = columnDefs;
 
@@ -370,16 +373,21 @@ class AgGrid extends HTMLElement {
   }
 
   focus() {
-    const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
-    this.gridOptions.api.ensureColumnVisible(firstEditCol);
-    this.gridOptions.api.setFocusedCell(0, firstEditCol);
+    const idx = 0;
+    this.gridOptions.api.ensureColumnVisible(this.firstEditCol);
+    this.gridOptions.api.ensureIndexVisible(idx);
+    this.gridOptions.api.setFocusedCell(idx, this.firstEditCol);
   }
 
-  focusRow(rowNo) {
+  /**
+   * Focuses first cell of the row at the given index
+   * @param {number} rowIndex
+   */
+  focusRow(rowIndex) {
     const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
     this.gridOptions.api.ensureColumnVisible(firstEditCol);
-    this.gridOptions.api.ensureIndexVisible(rowNo);
-    this.gridOptions.api.setFocusedCell(rowNo, firstEditCol);
+    this.gridOptions.api.ensureIndexVisible(rowIndex);
+    this.gridOptions.api.setFocusedCell(rowIndex, this.firstEditCol);
   }
 
   getSaveData() {
@@ -487,24 +495,22 @@ class AgGrid extends HTMLElement {
     return row;
   }
 
-  #insertRow() {
+  #addRow(currRowdId) {
     const newRow = this.#createRow();
-    this.newRows.push(newRow);
 
     newRow[ROW_ACITON] = 'C';
     this.changes.set(newRow[IDX_COL], newRow);
 
-    const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
-    if (maxRowFound) {
-      const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
-      gridOptions.api.setRowCount(rowCount + 1);
-    }
+    const node = this.gridOptions.api.getRowNode(currRowdId);
 
-    // this.#refreshDataAndRedraw();
+    this.gridOptions.api.applyTransaction({
+      add: [newRow],
+      addIndex: node.rowIndex + 1,
+    });
 
     setTimeout(() => {
-      this.focusRow(this.newRows.length - 1);
-    }, 300);
+      this.focusRow(node.rowIndex + 1);
+    }, 50);
   }
 
   #duplicateRow(rowId) {
@@ -513,22 +519,20 @@ class AgGrid extends HTMLElement {
     const newRow = { ...this.gridOptions.api.getRowNode(rowId).data }; // create a copy of the row
     newRow[IDX_COL] = getNewRowId();
     newRow[this.pkCol] = undefined; // reset pk val
-    this.newRows.push(newRow);
 
     newRow[ROW_ACITON] = 'C';
     this.changes.set(newRow[IDX_COL], newRow);
 
-    const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
-    if (maxRowFound) {
-      const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
-      gridOptions.api.setRowCount(rowCount + 1);
-    }
+    const node = this.gridOptions.api.getRowNode(rowId);
 
-    // this.#refreshDataAndRedraw();
+    this.gridOptions.api.applyTransaction({
+      add: [newRow],
+      addIndex: node.rowIndex + 1,
+    });
 
     setTimeout(() => {
-      this.focusRow(this.newRows.length - 1);
-    }, 300);
+      this.focusRow(node.rowIndex + 1);
+    }, 50);
   }
 
   #revertChanges(rowId) {
@@ -537,7 +541,6 @@ class AgGrid extends HTMLElement {
     if (this.changes.has(rowId)) {
       const row = this.changes.get(rowId);
       if (row[ROW_ACITON] === 'C') {
-        this.newRows = this.newRows.filter((r) => r[IDX_COL] !== rowId);
         this.changes.delete(rowId);
 
         // subtract 1 from row count
@@ -662,7 +665,7 @@ class AgGrid extends HTMLElement {
         label: 'Insert new row',
         icon: 'fa fa-plus',
         action: () => {
-          this.#insertRow();
+          this.#addRow(currRowdId);
         },
       },
       {
@@ -763,10 +766,6 @@ class AgGrid extends HTMLElement {
   }
 
   refresh() {
-    this.newRows = [];
-    this.dataCopy = [];
-    this.fetchedAllDbRows = false;
-
     this.changes.clear();
     this.originalState.clear();
 
