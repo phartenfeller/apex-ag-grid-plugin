@@ -289,7 +289,12 @@ class AgGrid extends HTMLElement {
 
     gridOptions.noRowsOverlayComponent = NoRowsOverlay;
     gridOptions.noRowsOverlayComponentParams = {
-      addRow: () => this.addRow(),
+      addRow: () => {
+        this.addRow();
+        setTimeout(() => {
+          this.focus();
+        }, 100);
+      },
       regionId: this.regionId,
     };
 
