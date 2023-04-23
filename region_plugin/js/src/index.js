@@ -2,6 +2,7 @@ import { ajax, AJAX_COL_METADATA } from './apex/ajax';
 import './apex/initRegion';
 import fetchData from './dataFetcher';
 import components from './gui-components';
+import NoRowsOverlay from './gui-components/NoRowsOverlay';
 import AG_GRID from './initGrid';
 import { arrayBoolsToNum } from './util/boolConversions';
 import {
@@ -286,6 +287,12 @@ class AgGrid extends HTMLElement {
 
     gridOptions.onCellKeyPress = this.#handleKeyPress.bind(this);
 
+    gridOptions.noRowsOverlayComponent = NoRowsOverlay;
+    gridOptions.noRowsOverlayComponentParams = {
+      addRow: () => this.addRow(),
+      regionId: this.regionId,
+    };
+
     return gridOptions;
   }
 
@@ -469,22 +476,27 @@ class AgGrid extends HTMLElement {
     return row;
   }
 
-  #addRow(currRowdId) {
+  addRow(currRowdId) {
     const newRow = this.#createRow();
 
     newRow[ROW_ACITON] = 'C';
     this.changes.set(newRow[IDX_COL], newRow);
 
-    const node = this.gridOptions.api.getRowNode(currRowdId);
+    let node;
+    if (!currRowdId) {
+      node = this.gridOptions.api.getRowNode(currRowdId);
+    }
 
     this.gridOptions.api.applyTransaction({
       add: [newRow],
-      addIndex: node.rowIndex + 1,
+      addIndex: node ? node.rowIndex + 1 : undefined,
     });
 
-    setTimeout(() => {
-      this.focusRow(node.rowIndex + 1);
-    }, 50);
+    if (node) {
+      setTimeout(() => {
+        this.focusRow(node.rowIndex + 1);
+      }, 50);
+    }
   }
 
   #duplicateRow(rowId) {
@@ -634,7 +646,7 @@ class AgGrid extends HTMLElement {
         label: 'Insert new row',
         icon: 'fa fa-plus',
         action: () => {
-          this.#addRow(currRowdId);
+          this.addRow(currRowdId);
         },
       },
       {
