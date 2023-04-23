@@ -423,31 +423,6 @@ class AgGrid extends HTMLElement {
     return { data: dataMap, pkCol: this.pkCol, pkIds };
   }
 
-  /**
-   * Because the infinite scrolling model relies on the server as data source
-   * it is not as trivial to change the amount of rows in the client
-   *
-   * This function gets calles when a change to the amount of rows is triggered.
-   * It will clear the cash load all the rows again (from client side chache) and redraw the grid
-   * to get the correct rows.
-   */
-  // #refreshDataAndRedraw() {
-  //   // when data is loaded we want to redraw the grid
-  //   // this is necessary as row IDs are not in sync without the redraw
-  //   this.gridNode.addEventListener(
-  //     DATA_LOAD_EVENT,
-  //     () => {
-  //       setTimeout(() => {
-  //         this.gridOptions.api.redrawRows();
-  //       }, 0);
-  //     },
-  //     { once: true }
-  //   );
-
-  //   // get grid to refresh the data
-  //   gridOptions.api.refreshInfiniteCache();
-  // }
-
   #markRowDeleted(rowId) {
     apex.debug.info(`Marking row ${rowId} as deleted`);
 
@@ -543,14 +518,9 @@ class AgGrid extends HTMLElement {
       if (row[ROW_ACITON] === 'C') {
         this.changes.delete(rowId);
 
-        // subtract 1 from row count
-        const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
-        if (maxRowFound) {
-          const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
-          gridOptions.api.setRowCount(rowCount - 1);
-        }
-
-        //  this.#refreshDataAndRedraw();
+        this.gridOptions.api.applyTransaction({
+          remove: [row],
+        });
       } else {
         this.changes.delete(rowId);
 
@@ -768,8 +738,6 @@ class AgGrid extends HTMLElement {
   refresh() {
     this.changes.clear();
     this.originalState.clear();
-
-    // this.#refreshDataAndRedraw();
   }
 
   saveSuccess() {
