@@ -11,7 +11,8 @@
     "no-console": 1,
     "import/no-extraneous-dependencies": 0,
     "no-underscore-dangle": 0,
-    "no-plusplus": 0
+    "no-plusplus": 0,
+    "radix": 0
   },
   "plugins": ["prettier"]
 }

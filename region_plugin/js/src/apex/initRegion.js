@@ -31,6 +31,7 @@ function _initPlugin({
   pkCol,
   focusOnLoad,
   displayRownum,
+  pageSize,
 }) {
   apex.debug.info(
     `Init AG Grid plugin with params => ${JSON.stringify({
@@ -40,8 +41,21 @@ function _initPlugin({
       pkCol,
       focusOnLoad,
       displayRownum,
+      pageSize,
     })}`
   );
+
+  let usedPageSize = pageSize;
+
+  if (!pageSize) {
+    apex.debug.warn(`No page size provided, falling back to 30...`);
+    usedPageSize = 30;
+  } else if (pageSize < 15) {
+    apex.debug.warn(
+      `Provided page size (${pageSize}) < minimum of 15, falling back to 15...`
+    );
+    usedPageSize = 15;
+  }
 
   /** @type any */
   const gridElement = document.createElement('p-ag-grid');
@@ -52,6 +66,7 @@ function _initPlugin({
   gridElement.pkCol = pkCol;
   gridElement.focusOnLoad = focusOnLoad === 'Y';
   gridElement.displayRownum = displayRownum === 'Y';
+  gridElement.pageSize = usedPageSize;
 
   gridElement.colFunctions = colFunctions[regionId];
 
