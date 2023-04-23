@@ -177,7 +177,7 @@ class AgGrid extends HTMLElement {
       if (!col.editable) {
         types.push('nonEdit');
         cellClasses.push('xag-read-only-cell');
-      } else if (!this.firstEditCol) {
+      } else if (col.is_visible && !this.firstEditCol) {
         this.firstEditCol = col.colname;
       }
 
@@ -270,7 +270,12 @@ class AgGrid extends HTMLElement {
 
     // no editable columns, set first col as firstEditCol (for focus)
     if (!this.firstEditCol) {
-      this.firstEditCol = columnDefs[0].colId;
+      for (let i = 0; i < columnDefs.length; i++) {
+        if (columnDefs[i].hide !== true) {
+          this.firstEditCol = columnDefs[i].colId;
+          break;
+        }
+      }
     }
 
     gridOptions.columnDefs = columnDefs;
@@ -385,6 +390,7 @@ class AgGrid extends HTMLElement {
 
   focus() {
     const idx = 0;
+    apex.debug.info(`Focusing first cell (${this.firstEditCol}) of first row`);
     this.gridOptions.api.ensureColumnVisible(this.firstEditCol);
     this.gridOptions.api.ensureIndexVisible(idx);
     this.gridOptions.api.setFocusedCell(idx, this.firstEditCol);
