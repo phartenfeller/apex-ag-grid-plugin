@@ -52,7 +52,7 @@ async function fetchData({
       apex.debug.info(`next row is ${nextRow}`);
 
       if (amountOfRows > data.length) {
-        apex.debug.log(
+        apex.debug.info(
           `Less received than requested from oracle => end reached`
         );
         fetchedAllDbRows = true;

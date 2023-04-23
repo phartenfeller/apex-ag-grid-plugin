@@ -32,7 +32,6 @@ export function ajax({
       {
         success(data) {
           hideSpinner();
-          console.log('Success: ', data);
           resolve(data);
         },
         error(err) {
