@@ -9,7 +9,7 @@ import {
   copyValue,
   getClipboardText,
   getLastCopiedColId,
-  markPaste
+  markPaste,
 } from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
 import {
@@ -18,7 +18,7 @@ import {
   getSelectionPasteShortcutText,
   isCopyKeyCombo,
   isPasteKeyCombo,
-  isSelectionPasteKeyCombo
+  isSelectionPasteKeyCombo,
 } from './util/keyboardShortcutHelper';
 
 /** @type any */
@@ -64,12 +64,11 @@ class AgGrid extends HTMLElement {
     this.pkCol = this.getAttribute('pkCol');
     this.focusOnLoad = this.getAttribute('focusOnLoad') === 'true';
     this.displayRownum = this.getAttribute('displayRownum') === 'true';
+    this.pageSize = parseInt(this.getAttribute('pageSize'));
 
     this.colFunctions = this.getAttribute('colFunctions') ?? {};
 
     this.contextMenuId = `${this.regionId}-context-menu`;
-
-    this.amountOfRows = 30;
 
     this.changes = new Map();
     this.originalState = new Map();
@@ -277,8 +276,8 @@ class AgGrid extends HTMLElement {
 
     gridOptions.getRowId = (params) => params.data[IDX_COL];
 
-    gridOptions.infiniteInitialRowCount = this.amountOfRows;
-    gridOptions.cacheBlockSize = this.amountOfRows;
+    gridOptions.infiniteInitialRowCount = this.pageSize;
+    gridOptions.cacheBlockSize = this.pageSize;
     gridOptions.cacheOverflowSize = 1;
     gridOptions.onBodyScroll = this.#handleScroll.bind(this);
 
@@ -305,7 +304,7 @@ class AgGrid extends HTMLElement {
       ajaxId: this.ajaxId,
       itemsToSubmit: this.itemsToSubmit,
       regionId: this.regionId,
-      amountOfRows: this.amountOfRows,
+      amountOfRows: this.pageSize,
       IDX_COL,
       pkCol: this.pkCol,
       boolCols: this.boolCols,
