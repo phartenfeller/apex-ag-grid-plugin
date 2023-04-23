@@ -79,6 +79,7 @@ function _initPlugin({
     focus: () => gridElement.focus(),
     saveSuccess: () => gridElement.saveSuccess(),
     refresh: () => gridElement.refresh(),
+    addRow: () => gridElement.addRow(),
   });
 
   // empty temporary col functions storage after init
