@@ -494,7 +494,7 @@ class AgGrid extends HTMLElement {
     this.changes.set(newRow[IDX_COL], newRow);
 
     let node;
-    if (!currRowdId) {
+    if (currRowdId) {
       node = this.gridOptions.api.getRowNode(currRowdId);
     }
 
