@@ -1,9 +1,26 @@
-import { ajax, AJAX_COL_METADATA, AJAX_DATA } from './apex/ajax';
+import { ajax, AJAX_COL_METADATA } from './apex/ajax';
 import './apex/initRegion';
+import fetchData from './dataFetcher';
 import components from './gui-components';
+import NoRowsOverlay from './gui-components/NoRowsOverlay';
 import AG_GRID from './initGrid';
-import { arrayBoolsToNum, arrayNumToBool } from './util/boolConversions';
+import { arrayBoolsToNum } from './util/boolConversions';
+import {
+  clearCopyIndicator,
+  copyValue,
+  getClipboardText,
+  getLastCopiedColId,
+  markPaste,
+} from './util/copyHelper';
 import getNewRowId from './util/getNewRowId';
+import {
+  getCopyShortcutText,
+  getPasteShortcutText,
+  getSelectionPasteShortcutText,
+  isCopyKeyCombo,
+  isPasteKeyCombo,
+  isSelectionPasteKeyCombo,
+} from './util/keyboardShortcutHelper';
 
 /** @type any */
 const { apex } = window;
@@ -11,9 +28,8 @@ const $ = apex.jQuery;
 
 const IDX_COL = '__idx';
 const ROW_ACITON = '__row_action';
-const DATA_LOAD_EVENT = 'dataLoadComplete';
 
-/** @type {import('@ag-grid-community/all-modules').GridOptions} */
+/** @type {import('@ag-grid-community/core').GridOptions} */
 const gridOptions = {
   // default col def properties get applied to all columns
   defaultColDef: {
@@ -28,7 +44,7 @@ const gridOptions = {
 
   animateRows: true, // have rows animate to new positions when sorted
 
-  rowModelType: 'infinite',
+  rowModelType: 'clientSide',
 
   columnTypes: {
     nonEdit: { editable: false },
@@ -49,25 +65,25 @@ class AgGrid extends HTMLElement {
     this.pkCol = this.getAttribute('pkCol');
     this.focusOnLoad = this.getAttribute('focusOnLoad') === 'true';
     this.displayRownum = this.getAttribute('displayRownum') === 'true';
+    this.pageSize = parseInt(this.getAttribute('pageSize'));
+
+    this.colFunctions = this.getAttribute('colFunctions') ?? {};
 
     this.contextMenuId = `${this.regionId}-context-menu`;
-
-    this.amountOfRows = 30;
 
     this.changes = new Map();
     this.originalState = new Map();
 
     this.markedChanges = false;
-
-    // unfortunately necessary for inserts...
-    // see https://www.ag-grid.com/javascript-data-grid/infinite-scrolling/#example-using-cache-api-methods
-    this.dataCopy = [];
-    this.newRows = [];
-    this.fetchedAllDbRows = false;
+    this.regionElement = undefined;
+    this.eBody = undefined;
+    this.eViewport = undefined;
 
     this.boolCols = [];
-
     this.refreshCols = [];
+    this.computedCols = [];
+
+    this.firstEditCol = undefined;
   }
 
   hasChanges() {
@@ -128,7 +144,7 @@ class AgGrid extends HTMLElement {
   }
 
   #getGridOptions({ colMetaData }) {
-    /** @type {import('@ag-grid-community/all-modules').ColDef[]} */
+    /** @type {import('@ag-grid-community/core').ColDef[]} */
     const columnDefs = [];
 
     // wether to show the row number col
@@ -161,6 +177,8 @@ class AgGrid extends HTMLElement {
       if (!col.editable) {
         types.push('nonEdit');
         cellClasses.push('xag-read-only-cell');
+      } else if (col.is_visible && !this.firstEditCol) {
+        this.firstEditCol = col.colname;
       }
 
       if (col.heading_alignment === 'RIGHT') {
@@ -177,7 +195,7 @@ class AgGrid extends HTMLElement {
         cellClasses.push('xag-center-aligned-cell');
       }
 
-      /** @type {import('@ag-grid-community/all-modules').ColDef} */
+      /** @type {import('@ag-grid-community/core').ColDef} */
       const colDef = {
         colId: col.colname,
         field: col.colname,
@@ -214,23 +232,104 @@ class AgGrid extends HTMLElement {
 
         // add to list of cols that need to be refreshed on change
         this.refreshCols.push(col.colname);
+      } else if (col.grid_data_type === 'Dynamically_Computed_Value') {
+        try {
+          colDef.valueGetter = (params) => {
+            // I don't know why, in some examples I get rows with no id and data
+            // Skip those rows
+            if (!params.node.id) return '';
+
+            // wrap in try catch to prevent errors from crashing the grid
+            try {
+              return this.colFunctions[col.colname](params); // 'temp..'; // __INT_FC(params);
+            } catch (e) {
+              apex.debug.error(
+                `Cannot evaluate ${
+                  col.colname
+                } value for following row: ${JSON.stringify(params.data)}`,
+                e
+              );
+              return 'Error computing value';
+            }
+          };
+        } catch (e) {
+          apex.debug.error(
+            `Invalid computation function for ${col.colname}`,
+            e
+          );
+        }
+
+        types.push('nonEdit');
+        cellClasses.push('xag-read-only-cell');
+
+        this.computedCols.push(col.colname);
       }
 
       columnDefs.push(colDef);
     });
 
+    // no editable columns, set first col as firstEditCol (for focus)
+    if (!this.firstEditCol) {
+      for (let i = 0; i < columnDefs.length; i++) {
+        if (columnDefs[i].hide !== true) {
+          this.firstEditCol = columnDefs[i].colId;
+          break;
+        }
+      }
+    }
+
     gridOptions.columnDefs = columnDefs;
 
     gridOptions.getRowId = (params) => params.data[IDX_COL];
 
-    gridOptions.infiniteInitialRowCount = this.amountOfRows;
-    gridOptions.cacheBlockSize = this.amountOfRows;
+    gridOptions.infiniteInitialRowCount = this.pageSize;
+    gridOptions.cacheBlockSize = this.pageSize;
     gridOptions.cacheOverflowSize = 1;
+    gridOptions.onBodyScroll = this.#handleScroll.bind(this);
 
     const boundHandleChange = this.#handleChange.bind(this);
     gridOptions.onCellValueChanged = boundHandleChange;
 
+    gridOptions.onCellKeyPress = this.#handleKeyPress.bind(this);
+
+    gridOptions.noRowsOverlayComponent = NoRowsOverlay;
+    gridOptions.noRowsOverlayComponentParams = {
+      addRow: () => {
+        this.addRow();
+        setTimeout(() => {
+          this.focus();
+        }, 100);
+      },
+      regionId: this.regionId,
+    };
+
     return gridOptions;
+  }
+
+  #insertRows(newRows) {
+    // const rowcount = gridOptions.api?.getDisplayedRowCount();
+    apex.debug.info(`Adding new rows`, newRows);
+    this.gridOptions.api.applyTransaction({
+      add: newRows,
+      // addIndex: rowcount,
+    });
+  }
+
+  async #fetchMoreRows(insertRows = true) {
+    const newRows = await fetchData({
+      apex,
+      ajaxId: this.ajaxId,
+      itemsToSubmit: this.itemsToSubmit,
+      regionId: this.regionId,
+      amountOfRows: this.pageSize,
+      IDX_COL,
+      pkCol: this.pkCol,
+      boolCols: this.boolCols,
+    });
+    if (newRows?.length > 0 && insertRows) {
+      this.#insertRows(newRows);
+    }
+    return newRows;
   }
 
   async #setupGrid() {
@@ -252,159 +351,60 @@ class AgGrid extends HTMLElement {
       colMetaData: res.colMetaData,
     });
     this.grid = new AG_GRID(this.gridNode, this.gridOptions);
+    this.regionElement = document.querySelector(`#${this.regionId}`);
 
-    const dataSource = {
-      rowCount: undefined, // behave as infinite scroll
+    const initialRows = await this.#fetchMoreRows(false);
+    this.gridOptions.api.setRowData(initialRows);
 
-      getRows: async (params) => {
-        try {
-          apex.debug.info(
-            `asking for ${params.startRow} - ${params.endRow}. New rows: ${this.newRows.length}`
-          );
-
-          let toDeliverRows = [];
-          const wantedRows = params.endRow - params.startRow;
-
-          // first deliver new rows
-          if (params.startRow < this.newRows.length) {
-            const subEnd =
-              params.startRow + Math.min(wantedRows, this.newRows.length);
-            apex.debug.info(
-              `Substituting rows from newRows: ${params.startRow} - ${subEnd}`
-            );
-            toDeliverRows.push(...this.newRows.slice(params.startRow, subEnd));
-          }
-
-          apex.debug.info('toDeliverRows after inserted', toDeliverRows);
-
-          const firstWantedDataRow =
-            params.startRow === 0 ? 0 : params.startRow - this.newRows.length;
-          const amountWantedDataRows = wantedRows - toDeliverRows.length;
-
-          // next deliver cached rows
-          if (
-            amountWantedDataRows > 0 &&
-            firstWantedDataRow < this.dataCopy.length
-          ) {
-            const subEnd =
-              firstWantedDataRow +
-              Math.min(amountWantedDataRows, this.dataCopy.length);
-            apex.debug.info(
-              `Substituting rows from dataCopy: ${firstWantedDataRow} - ${subEnd}`
-            );
-            toDeliverRows.push(
-              ...this.dataCopy.slice(firstWantedDataRow, subEnd)
-            );
-          }
-
-          apex.debug.info('toDeliverRows after cache', toDeliverRows);
-
-          const oraFirstRow =
-            params.startRow === 0
-              ? 1 // Oracle starts with 1
-              : params.startRow + 1 - this.newRows.length;
-          const oraAmountOfRows = wantedRows - toDeliverRows.length;
-
-          apex.debug.info(
-            `Fetch oracle? fetchedAllDbRows => ${this.fetchedAllDbRows}, oraAmountOfRows => ${oraAmountOfRows}`
-          );
-          if (!this.fetchedAllDbRows && oraAmountOfRows > 0) {
-            apex.debug.info(
-              `Query from oracle from ${oraFirstRow} #${oraAmountOfRows} rows`
-            );
-
-            const dataRes = await ajax({
-              apex,
-              ajaxId: this.ajaxId,
-              itemsToSubmit: this.itemsToSubmit,
-              regionId: this.regionId,
-              methods: [AJAX_DATA],
-              firstRow: oraFirstRow,
-              amountOfRows: oraAmountOfRows,
-            });
-
-            if (dataRes.data) {
-              const { data } = dataRes;
-              for (let i = 0; i < data.length; i++) {
-                data[i][IDX_COL] = data[i][this.pkCol].toString();
-              }
-
-              const nextRow = oraFirstRow + data.length;
-              apex.debug.info(`next row is ${nextRow}`);
-
-              if (this.focusOnLoad && params.startRow === 0) {
-                setTimeout(() => {
-                  this.focus();
-                }, 100);
-              }
-
-              this.dataCopy.push(...data);
-              toDeliverRows.push(...data);
-
-              if (oraAmountOfRows > data.length) {
-                apex.debug.log(
-                  `Less receaved than requested from oracle => end reached`
-                );
-                this.fetchedAllDbRows = true;
-              }
-            } else {
-              apex.debug.error(
-                `Could not fetch data from region #${
-                  this.regionId
-                }. Res => ${JSON.stringify(dataRes)}`
-              );
-              params.failCallback();
-            }
-          } else {
-            apex.debug.info('No need to fetch from oracle');
-          }
-
-          const lastRow = this.fetchedAllDbRows
-            ? this.dataCopy.length + this.newRows.length
-            : -1;
-
-          apex.debug.info('toDeliverRows after oracle', toDeliverRows);
-          apex.debug.info(`last row is ${lastRow}`);
-
-          if (this.boolCols.length > 0) {
-            apex.debug.info(
-              `Converting bool cols (${this.boolCols.join(', ')})`
-            );
-
-            toDeliverRows = arrayNumToBool(toDeliverRows, this.boolCols);
-          }
-
-          params.successCallback(toDeliverRows, lastRow);
-
-          const event = new Event(DATA_LOAD_EVENT);
-          this.gridNode.dispatchEvent(event);
-        } catch (err) {
-          apex.debug.error(
-            `Error fetching data from region #${
-              this.regionId
-            }. Err => ${JSON.stringify(err)}, ${err}`
-          );
-          params.failCallback();
-        }
-      },
-    };
-
-    this.gridOptions.api.setDatasource(dataSource);
+    if (this.focusOnLoad) {
+      setTimeout(() => {
+        this.focus();
+      }, 100);
+    }
 
     // this.gridOptions.api.setRowData(res.data);
   }
 
-  focus() {
-    const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
-    this.gridOptions.api.ensureColumnVisible(firstEditCol);
-    this.gridOptions.api.setFocusedCell(0, firstEditCol);
+  #handleScroll(e) {
+    if (e.direction !== 'vertical') {
+      return;
+    }
+
+    if (!this.eBody) {
+      this.eBody = this.regionElement.querySelector(`div[ref="eBody"]`);
+    }
+
+    const regionHeight = this.eBody.clientHeight;
+
+    if (!this.eViewport) {
+      this.eViewport = this.regionElement.querySelector(`div[ref="eViewport"]`);
+    }
+    const viewportHeight = this.eViewport.clientHeight;
+    const scrollTop = e.top;
+
+    // 200 px to the bottom
+    if (viewportHeight - regionHeight - scrollTop <= 400) {
+      this.#fetchMoreRows();
+    }
   }
 
-  focusRow(rowNo) {
+  focus() {
+    const idx = 0;
+    apex.debug.info(`Focusing first cell (${this.firstEditCol}) of first row`);
+    this.gridOptions.api.ensureColumnVisible(this.firstEditCol);
+    this.gridOptions.api.ensureIndexVisible(idx);
+    this.gridOptions.api.setFocusedCell(idx, this.firstEditCol);
+  }
+
+  /**
+   * Focuses first cell of the row at the given index
+   * @param {number} rowIndex
+   */
+  focusRow(rowIndex) {
     const firstEditCol = this.gridOptions.columnApi.getAllDisplayedColumns()[0];
     this.gridOptions.api.ensureColumnVisible(firstEditCol);
-    this.gridOptions.api.ensureIndexVisible(rowNo);
-    this.gridOptions.api.setFocusedCell(rowNo, firstEditCol);
+    this.gridOptions.api.ensureIndexVisible(rowIndex);
+    this.gridOptions.api.setFocusedCell(rowIndex, this.firstEditCol);
   }
 
   getSaveData() {
@@ -416,38 +416,28 @@ class AgGrid extends HTMLElement {
 
     const pkIds = data.map((row) => row[IDX_COL]);
     const dataMap = {};
-    data.forEach((row) => {
-      dataMap[row[IDX_COL]] = row;
-    });
+
+    if (this.computedCols.length === 0) {
+      data.forEach((row) => {
+        dataMap[row[IDX_COL]] = row;
+      });
+    } else {
+      // computed cols are not in the data, so we need to fetch them from the grid manually
+      data.forEach((row) => {
+        const rowdata = { ...row }; // copy
+        const rowNode = this.gridOptions.api.getRowNode(row[IDX_COL]);
+
+        this.computedCols.forEach((col) => {
+          rowdata[col] = this.gridOptions.api.getValue(col, rowNode);
+        });
+
+        dataMap[row[IDX_COL]] = rowdata;
+      });
+    }
 
     apex.debug.info('Saving data', dataMap);
 
     return { data: dataMap, pkCol: this.pkCol, pkIds };
-  }
-
-  /**
-   * Because the infinite scrolling model relies on the server as data source
-   * it is not as trivial to change the amount of rows in the client
-   *
-   * This function gets calles when a change to the amount of rows is triggered.
-   * It will clear the cash load all the rows again (from client side chache) and redraw the grid
-   * to get the correct rows.
-   */
-  #refreshDataAndRedraw() {
-    // when data is loaded we want to redraw the grid
-    // this is necessary as row IDs are not in sync without the redraw
-    this.gridNode.addEventListener(
-      DATA_LOAD_EVENT,
-      () => {
-        setTimeout(() => {
-          this.gridOptions.api.redrawRows();
-        }, 0);
-      },
-      { once: true }
-    );
-
-    // get grid to refresh the data
-    gridOptions.api.refreshInfiniteCache();
   }
 
   #markRowDeleted(rowId) {
@@ -497,24 +487,27 @@ class AgGrid extends HTMLElement {
     return row;
   }
 
-  #insertRow() {
+  addRow(currRowdId) {
     const newRow = this.#createRow();
-    this.newRows.push(newRow);
 
     newRow[ROW_ACITON] = 'C';
     this.changes.set(newRow[IDX_COL], newRow);
 
-    const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
-    if (maxRowFound) {
-      const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
-      gridOptions.api.setRowCount(rowCount + 1);
+    let node;
+    if (currRowdId) {
+      node = this.gridOptions.api.getRowNode(currRowdId);
     }
 
-    this.#refreshDataAndRedraw();
+    this.gridOptions.api.applyTransaction({
+      add: [newRow],
+      addIndex: node ? node.rowIndex + 1 : undefined,
+    });
 
-    setTimeout(() => {
-      this.focusRow(this.newRows.length - 1);
-    }, 300);
+    if (node) {
+      setTimeout(() => {
+        this.focusRow(node.rowIndex + 1);
+      }, 50);
+    }
   }
 
   #duplicateRow(rowId) {
@@ -523,22 +516,20 @@ class AgGrid extends HTMLElement {
     const newRow = { ...this.gridOptions.api.getRowNode(rowId).data }; // create a copy of the row
     newRow[IDX_COL] = getNewRowId();
     newRow[this.pkCol] = undefined; // reset pk val
-    this.newRows.push(newRow);
 
     newRow[ROW_ACITON] = 'C';
     this.changes.set(newRow[IDX_COL], newRow);
 
-    const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
-    if (maxRowFound) {
-      const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
-      gridOptions.api.setRowCount(rowCount + 1);
-    }
+    const node = this.gridOptions.api.getRowNode(rowId);
 
-    this.#refreshDataAndRedraw();
+    this.gridOptions.api.applyTransaction({
+      add: [newRow],
+      addIndex: node.rowIndex + 1,
+    });
 
     setTimeout(() => {
-      this.focusRow(this.newRows.length - 1);
-    }, 300);
+      this.focusRow(node.rowIndex + 1);
+    }, 50);
   }
 
   #revertChanges(rowId) {
@@ -547,17 +538,11 @@ class AgGrid extends HTMLElement {
     if (this.changes.has(rowId)) {
       const row = this.changes.get(rowId);
       if (row[ROW_ACITON] === 'C') {
-        this.newRows = this.newRows.filter((r) => r[IDX_COL] !== rowId);
         this.changes.delete(rowId);
 
-        // subtract 1 from row count
-        const maxRowFound = this.gridOptions.api.isLastRowIndexKnown();
-        if (maxRowFound) {
-          const rowCount = this.gridOptions.api.getInfiniteRowCount() || 0;
-          gridOptions.api.setRowCount(rowCount - 1);
-        }
-
-        this.#refreshDataAndRedraw();
+        this.gridOptions.api.applyTransaction({
+          remove: [row],
+        });
       } else {
         this.changes.delete(rowId);
 
@@ -575,8 +560,95 @@ class AgGrid extends HTMLElement {
     }
   }
 
+  #copyCell(rowId, colId, clickedColElement) {
+    const rowNode = this.gridOptions.api.getRowNode(rowId);
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${rowId} in the grid.`);
+      return;
+    }
+
+    const { data } = rowNode;
+    const cellValue = data[colId];
+
+    apex.debug.info(
+      `Copying cell value ${cellValue} from row ${rowId}, col ${colId}`
+    );
+    copyValue({
+      value: cellValue,
+      rowId,
+      colId,
+      clickedColElement,
+      regionId: this.regionId,
+    });
+  }
+
+  async #pasteCell(currRowdId, currColId, clickedColElement) {
+    const rowNode = this.gridOptions.api.getRowNode(currRowdId);
+    if (!rowNode) {
+      apex.debug.error(`Could not find row with id ${currRowdId} in the grid.`);
+      return;
+    }
+
+    const { data } = rowNode;
+    const cellValue = data[currColId];
+
+    const clipboard = await getClipboardText();
+    if (clipboard === null || clipboard === undefined || clipboard === '') {
+      apex.debug.warn('Clipboard is empty, nothing to paste.');
+      return;
+    }
+    data[currColId] = clipboard;
+
+    rowNode.setData(data);
+    clearCopyIndicator(this.regionId);
+    markPaste(clickedColElement);
+
+    /*
+    this.gridOptions.api.refreshCells({
+      force: true,
+      rowNodes: [rowNode],
+      columns: [currRowdId],
+    });
+    */
+
+    apex.debug.info(
+      `Pasting cell value ${cellValue} from row ${currRowdId}, col ${currColId}`
+    );
+  }
+
+  async #pasteSelectedRows() {
+    const clipboard = await getClipboardText();
+    if (clipboard === null || clipboard === undefined || clipboard === '') {
+      apex.debug.warn('Clipboard is empty, nothing to paste.');
+      return;
+    }
+
+    const colId = getLastCopiedColId();
+    if (!colId) {
+      apex.debug.warn(
+        'No column was copied before, can`t determine where to paste.'
+      );
+      return;
+    }
+
+    this.gridOptions.api.getSelectedNodes().forEach((rowNode) => {
+      const { data } = rowNode;
+      data[colId] = clipboard;
+      rowNode.setData(data);
+
+      const element = this.regionElement.querySelector(
+        `div[row-id="${rowNode.id}"] div[col-id="${colId}"]`
+      );
+      markPaste(element);
+    });
+
+    clearCopyIndicator(this.regionId);
+  }
+
   #setupContextMenu() {
     let currRowdId = null;
+    let currColId = null;
+    let currColElement = null;
     const $contextMenu = $(`#${this.contextMenuId}`);
 
     const menuList = [
@@ -585,7 +657,7 @@ class AgGrid extends HTMLElement {
         label: 'Insert new row',
         icon: 'fa fa-plus',
         action: () => {
-          this.#insertRow();
+          this.addRow(currRowdId);
         },
       },
       {
@@ -606,6 +678,9 @@ class AgGrid extends HTMLElement {
         disabled: () => this.#isMarkedForDeletion(currRowdId),
       },
       {
+        type: 'separator',
+      },
+      {
         type: 'action',
         label: 'Revert changes',
         icon: 'fa fa-undo',
@@ -614,6 +689,33 @@ class AgGrid extends HTMLElement {
         },
         disabled: () => !this.changes.has(currRowdId),
       },
+      {
+        type: 'action',
+        label: 'Copy cell',
+        icon: 'fa fa-copy',
+        action: () => {
+          this.#copyCell(currRowdId, currColId, currColElement);
+        },
+        accelerator: getCopyShortcutText(),
+      },
+      {
+        type: 'action',
+        label: 'Paste',
+        icon: 'fa fa-paste',
+        action: () => {
+          this.#pasteCell(currRowdId, currColId, currColElement);
+        },
+        accelerator: getPasteShortcutText(),
+      },
+      {
+        type: 'action',
+        label: 'Paste to selected rows',
+        icon: 'fa fa-paste fam-check fam-is-disabled',
+        action: () => {
+          this.#pasteSelectedRows();
+        },
+        accelerator: getSelectionPasteShortcutText(),
+      },
     ];
 
     $contextMenu.menu({
@@ -621,10 +723,16 @@ class AgGrid extends HTMLElement {
       items: menuList,
     });
 
-    $(`#${this.regionId}`).on('contextmenu', '.ag-row', (e) => {
+    $(`#${this.regionId}`).on('contextmenu', '.ag-cell', (e) => {
       e.preventDefault();
-      currRowdId = e.currentTarget.getAttribute('row-id').toString();
+      currColElement = e.currentTarget;
+      currRowdId = e.currentTarget
+        .closest('.ag-row')
+        .getAttribute('row-id')
+        .toString(); // e.currentTarget.getAttribute('row-id').toString();
+      currColId = e.currentTarget.getAttribute('col-id');
       apex.debug.info('Row id', currRowdId, typeof currRowdId);
+      apex.debug.info('Col id', currColId, typeof currColId);
       $contextMenu.menu('toggle', e.pageX, e.pageY);
     });
   }
@@ -633,7 +741,7 @@ class AgGrid extends HTMLElement {
     const wrapperNode = document.createElement('div');
 
     this.gridNode = document.createElement('div');
-    this.gridNode.classList.add('ag-theme-alpine');
+    this.gridNode.classList.add('ag-theme-apex');
     this.gridNode.style.height = '500px';
 
     const contextMenuNode = document.createElement('div');
@@ -650,19 +758,27 @@ class AgGrid extends HTMLElement {
   }
 
   refresh() {
-    this.newRows = [];
-    this.dataCopy = [];
-    this.fetchedAllDbRows = false;
-
     this.changes.clear();
     this.originalState.clear();
-
-    this.#refreshDataAndRedraw();
   }
 
   saveSuccess() {
     this.changes.clear();
     this.refresh();
+  }
+
+  #handleKeyPress(e) {
+    apex.debug.info('KeyPressed', e.event.key, e);
+
+    if (e.event.key === 'Escape') {
+      clearCopyIndicator(this.regionId);
+    } else if (isCopyKeyCombo(e.event)) {
+      this.#copyCell(e.node.id, e.column.colId, e.event.target);
+    } else if (isSelectionPasteKeyCombo(e.event)) {
+      this.#pasteSelectedRows();
+    } else if (isPasteKeyCombo(e.event)) {
+      this.#pasteCell(e.node.id, e.column.colId, e.event.target);
+    }
   }
 }
 

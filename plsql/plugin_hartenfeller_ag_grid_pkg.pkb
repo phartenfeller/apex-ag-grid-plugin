@@ -1,20 +1,107 @@
 create or replace package body plugin_hartenfeller_ag_grid_pkg as 
 
   type t_col_info is record (
-    name              APEX_APPLICATION_PAGE_REG_COLS.name%type
-  , data_type         APEX_APPLICATION_PAGE_REG_COLS.data_type%type
-  , is_visible        number(1,0)
-  , heading           APEX_APPLICATION_PAGE_REG_COLS.heading%type
-  , editable          number(1,0)
-  , grid_data_type    APEX_APPLICATION_PAGE_REG_COLS.attribute_02%type
-  , number_format     APEX_APPLICATION_PAGE_REG_COLS.attribute_03%type
-  , heading_alignment APEX_APPLICATION_PAGE_REG_COLS.attribute_04%type
-  , value_alignment   APEX_APPLICATION_PAGE_REG_COLS.value_alignment%type
-  , html_template     APEX_APPLICATION_PAGE_REG_COLS.attribute_05%type
-  , max_col_width     APEX_APPLICATION_PAGE_REG_COLS.attribute_06%type
+    name                  APEX_APPLICATION_PAGE_REG_COLS.name%type
+  , data_type             APEX_APPLICATION_PAGE_REG_COLS.data_type%type
+  , is_visible            number(1,0)
+  , heading               APEX_APPLICATION_PAGE_REG_COLS.heading%type
+  , editable              number(1,0)
+  , grid_data_type        APEX_APPLICATION_PAGE_REG_COLS.attribute_02%type
+  , number_format         APEX_APPLICATION_PAGE_REG_COLS.attribute_03%type
+  , heading_alignment     APEX_APPLICATION_PAGE_REG_COLS.attribute_04%type
+  , value_alignment       APEX_APPLICATION_PAGE_REG_COLS.value_alignment%type
+  , html_template         APEX_APPLICATION_PAGE_REG_COLS.attribute_05%type
+  , max_col_width         APEX_APPLICATION_PAGE_REG_COLS.attribute_06%type
+  , js_computed_val_code  APEX_APPLICATION_PAGE_REG_COLS.attribute_07%type
   );
 
   type tt_col_info is table of t_col_info;
+
+
+  function get_col_info (
+    p_region_id in varchar2
+  )
+    return tt_col_info
+  as
+    l_has_default_id     boolean;
+    l_col_info_query_tab tt_col_info;
+  begin
+    l_has_default_id := regexp_substr(p_region_id, 'R[0-9]+$') = p_region_id;
+    
+    if l_has_default_id then
+      select c.name
+          , c.data_type
+          , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
+          , c.heading
+          , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
+          , c.attribute_02 as grid_data_type
+          , c.attribute_03 as number_format
+          , c.attribute_04 as heading_alignment
+          , c.value_alignment
+          , c.attribute_05 as html_template
+          , c.attribute_06 as max_col_width
+          , c.attribute_07 as js_computed_val_code
+        bulk collect into l_col_info_query_tab
+        from APEX_APPLICATION_PAGE_REGIONS r 
+        join APEX_APPLICATION_PAGE_REG_COLS c
+          on r.region_id = c.region_id
+      where r.application_id = v('APP_ID')
+        and r.page_id = v('APP_PAGE_ID')
+        and r.region_id = to_number(replace(p_region_id, 'R', ''))
+      order by c.display_sequence
+      ;
+    else 
+      select c.name
+          , c.data_type
+          , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
+          , c.heading
+          , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
+          , c.attribute_02 as grid_data_type
+          , c.attribute_03 as number_format
+          , c.attribute_04 as heading_alignment
+          , c.value_alignment
+          , c.attribute_05 as html_template
+          , c.attribute_06 as max_col_width
+          , c.attribute_07 as js_computed_val_code
+        bulk collect into l_col_info_query_tab
+        from APEX_APPLICATION_PAGE_REGIONS r 
+        join APEX_APPLICATION_PAGE_REG_COLS c
+          on r.region_id = c.region_id
+      where r.application_id = v('APP_ID')
+        and r.page_id = v('APP_PAGE_ID')
+        and r.static_id = p_region_id
+      order by c.display_sequence
+      ;
+    end if;
+
+    return l_col_info_query_tab;
+  end get_col_info;
+
+
+  procedure log_render_parameters (
+    pi_region in apex_plugin.t_region
+  )
+  is
+  begin
+      if apex_application.g_debug
+      then
+          apex_debug.message('---------------');
+          apex_debug.message('Render Parameters');
+          apex_debug.message('---------------');
+          apex_debug.message('p_region.static_id: %s', pi_region.static_id);
+          apex_debug.message('ajax_items_to_submit: %s', pi_region.ajax_items_to_submit);
+          apex_debug.message('attribute_01: %s', pi_region.attribute_01);
+          apex_debug.message('attribute_02: %s', pi_region.attribute_02);
+          apex_debug.message('attribute_03: %s', pi_region.attribute_03);
+          apex_debug.message('attribute_04: %s', pi_region.attribute_04);
+
+          apex_debug.message('g_x01', APEX_APPLICATION.g_x01);
+
+          apex_debug.message('---------------');
+          apex_debug.message('EOF Parameters');
+          apex_debug.message('---------------');
+      end if;
+  end log_render_parameters;
 
   function render_region   (
     p_region              in apex_plugin.t_region
@@ -23,8 +110,12 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
   ) 
     return apex_plugin.t_region_render_result
   as
+    l_onload_js     varchar2(32767 char) := '';
+
     l_result        apex_plugin.t_region_render_result;
     l_region_id_esc p_region.static_id%type := apex_escape.html_attribute( p_region.static_id );
+
+    l_col_info_query_tab tt_col_info;
   begin
 
     --debug
@@ -37,16 +128,36 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     end if;
 
     sys.htp.p('<div id="'|| l_region_id_esc ||'_component_wrapper"></div');
+
+    l_col_info_query_tab := get_col_info(l_region_id_esc);
+
+    for i in 1 .. l_col_info_query_tab.count
+    loop
+
+      if l_col_info_query_tab(i).js_computed_val_code is not null then
+        l_onload_js := l_onload_js ||
+          'window.hartenfeller_dev.plugins.ag_grid.addComputedColCode({'|| 
+          apex_javascript.add_attribute( p_name => 'regionId', p_value => l_region_id_esc ) ||
+          apex_javascript.add_attribute( p_name => 'colname', p_value => l_col_info_query_tab(i).NAME ) ||
+          'fc: ' || l_col_info_query_tab(i).js_computed_val_code ||
+          '});';
+
+      end if;
+
+    end loop;
+
+    l_onload_js := l_onload_js ||
+      'window.hartenfeller_dev.plugins.ag_grid.initPlugin({'|| 
+      apex_javascript.add_attribute( p_name => 'regionId', p_value => l_region_id_esc ) ||
+      apex_javascript.add_attribute( p_name => 'ajaxId', p_value => apex_plugin.get_ajax_identifier ) ||
+      apex_javascript.add_attribute( p_name => 'itemsToSubmit', p_value => apex_plugin_util.page_item_names_to_jquery( p_page_item_names => p_region.ajax_items_to_submit ) ) ||
+      apex_javascript.add_attribute( p_name => 'pkCol', p_value => p_region.attribute_01 ) ||
+      apex_javascript.add_attribute( p_name => 'focusOnLoad', p_value => p_region.attribute_02 ) ||
+      apex_javascript.add_attribute( p_name => 'displayRownum', p_value => p_region.attribute_03 ) ||
+      apex_javascript.add_attribute( p_name => 'pageSize', p_value => p_region.attribute_04 ) ||
+      '})';
     
-    apex_javascript.add_onload_code(p_code => 'window.hartenfeller_dev.plugins.ag_grid.initPlugin({'|| 
-                                  apex_javascript.add_attribute( p_name => 'regionId', p_value => l_region_id_esc ) ||
-                                  apex_javascript.add_attribute( p_name => 'ajaxId', p_value => apex_plugin.get_ajax_identifier ) ||
-                                  apex_javascript.add_attribute( p_name => 'itemsToSubmit', p_value => apex_plugin_util.page_item_names_to_jquery( p_page_item_names => p_region.ajax_items_to_submit ) ) ||
-                                  apex_javascript.add_attribute( p_name => 'pkCol', p_value => p_region.attribute_01 ) ||
-                                  apex_javascript.add_attribute( p_name => 'focusOnLoad', p_value => p_region.attribute_02 ) ||
-                                  apex_javascript.add_attribute( p_name => 'displayRownum', p_value => p_region.attribute_03 ) ||
-                                  '})');
-    
+    apex_javascript.add_onload_code(p_code => l_onload_js);
     
     return l_result;
   end render_region;
@@ -61,8 +172,6 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     l_region_id     p_region.static_id%type := p_region.static_id;
 
     l_col_info_query_tab tt_col_info;
-
-    l_has_default_id boolean;
     
     l_methods varchar2(255 char);
     l_methods_split apex_t_varchar2;
@@ -80,6 +189,8 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
     , p_region => p_region
     );
 
+    log_render_parameters(p_region);
+
     l_methods := APEX_APPLICATION.g_x01 ;
     apex_debug.info( apex_string.format('Calling AJAX with methods => %0', l_methods ) );
 
@@ -89,51 +200,8 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
 
     if 'colMetadata' member of l_methods_split then
 
-      l_has_default_id := regexp_substr(l_region_id, 'R[0-9]+$') = l_region_id;
-    
-      if l_has_default_id then
-        select c.name
-            , c.data_type
-            , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
-            , c.heading
-            , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
-            , c.attribute_02 as grid_data_type
-            , c.attribute_03 as number_format
-            , c.attribute_04 as heading_alignment
-            , c.value_alignment
-            , c.attribute_05 as html_template
-            , c.attribute_06 as max_col_width
-          bulk collect into l_col_info_query_tab
-          from APEX_APPLICATION_PAGE_REGIONS r 
-          join APEX_APPLICATION_PAGE_REG_COLS c
-            on r.region_id = c.region_id
-        where r.application_id = v('APP_ID')
-          and r.page_id = v('APP_PAGE_ID')
-          and r.region_id = to_number(replace(l_region_id, 'R', ''))
-        order by c.display_sequence
-        ;
-      else 
-        select c.name
-            , c.data_type
-            , case when c.is_visible = 'Yes' then 1 else 0 end as is_visible
-            , c.heading
-            , case when c.attribute_01 = 'Y' then 1 else 0 end as editable
-            , c.attribute_02 as grid_data_type
-            , c.attribute_03 as number_format
-            , c.attribute_04 as heading_alignment
-            , c.value_alignment
-            , c.attribute_05 as html_template
-            , c.attribute_06 as max_col_width
-          bulk collect into l_col_info_query_tab
-          from APEX_APPLICATION_PAGE_REGIONS r 
-          join APEX_APPLICATION_PAGE_REG_COLS c
-            on r.region_id = c.region_id
-        where r.application_id = v('APP_ID')
-          and r.page_id = v('APP_PAGE_ID')
-          and r.static_id = l_region_id
-        order by c.display_sequence
-        ;
-      end if;
+      l_col_info_query_tab := get_col_info(l_region_id);
+  
       apex_json.open_array('colMetaData'); -- "colMetaData": [
       
 
@@ -151,7 +219,21 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
         apex_json.write('value_alignment',l_col_info_query_tab(i).value_alignment); -- "value_alignment": "..."
         apex_json.write('htmlTemplate',l_col_info_query_tab(i).html_template); -- "value_alignment": "..."
         apex_json.write('maxColWidth',l_col_info_query_tab(i).max_col_width); -- "maxColWidth": "..."
+    
+        if l_col_info_query_tab(i).js_computed_val_code is not null then
+          apex_javascript.add_inline_code ( 
+            p_code =>
+              'window.hartenfeller_dev.plugins.ag_grid.addComputedColCode({'|| 
+              apex_javascript.add_attribute( p_name => 'regionId', p_value => l_region_id ) ||
+              apex_javascript.add_attribute( p_name => 'colname', p_value => l_col_info_query_tab(i).NAME ) ||
+              apex_javascript.add_attribute( p_name => 'fc', p_value => l_col_info_query_tab(i).js_computed_val_code ) ||
+              '});'
+          , p_key => 'ag_grid_computed_col_code_' || l_region_id || '_' || l_col_info_query_tab(i).NAME
+          );
+        end if;
+
         apex_json.close_object; -- }
+
       end loop;
 
       apex_json.close_array;

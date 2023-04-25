@@ -1,15 +1,15 @@
 {
   "license": "MIT",
   "devDependencies": {
-    "css-loader": "^6.7.1",
+    "css-loader": "^6.7.3",
     "css-minimizer-webpack-plugin": "^4.2.2",
-    "html-webpack-plugin": "^5.5.0",
-    "mini-css-extract-plugin": "^2.6.1",
+    "html-webpack-plugin": "^5.5.1",
+    "mini-css-extract-plugin": "^2.7.5",
     "npm-run-all": "^4.1.5",
-    "terser-webpack-plugin": "^5.3.6",
-    "webpack": "^5.74.0",
-    "webpack-cli": "^4.10.0",
-    "webpack-dev-server": "^4.11.1"
+    "terser-webpack-plugin": "^5.3.7",
+    "webpack": "^5.80.0",
+    "webpack-cli": "^5.0.2",
+    "webpack-dev-server": "^4.13.3"
   },
   "scripts": {
     "start": "npx webpack-cli serve --mode=development --config webpack.dev.js",
@@ -19,6 +19,8 @@
     "serve": "npx webpack-cli serve --mode=development --config webpack.serve.js"
   },
   "dependencies": {
-    "@ag-grid-community/all-modules": "^27.3.0"
+    "@ag-grid-community/client-side-row-model": "^29.0.0",
+    "@ag-grid-community/core": "^29.0.0",
+    "@ag-grid-community/styles": "^29.0.0"
   }
 }
