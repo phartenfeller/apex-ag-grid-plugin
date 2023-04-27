@@ -12,8 +12,9 @@
     "webpack-dev-server": "^4.13.3"
   },
   "scripts": {
-    "start": "npx webpack-cli serve --mode=development --config webpack.dev.js",
+    "start": "npx webpack-cli serve --mode=development --config webpack.dev.js ",
     "build": "npm-run-all build-demo build-prod",
+    "build-offline": "npx webpack-cli --mode=production --config webpack.prod.js --env offline",
     "build-demo": "npx webpack-cli --mode=development --config webpack.dev.js",
     "build-prod": "npx webpack-cli --mode=production --config webpack.prod.js",
     "serve": "npx webpack-cli serve --mode=development --config webpack.serve.js"
