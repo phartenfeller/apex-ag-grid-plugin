@@ -1,5 +1,6 @@
 import { ajax, AJAX_COL_METADATA } from './apex/ajax';
 import './apex/initRegion';
+import { DATA_KEY_COLMETA, IS_OFFLINE_MODE } from './constants';
 import fetchData from './dataFetcher';
 import components from './gui-components';
 import NoRowsOverlay from './gui-components/NoRowsOverlay';
@@ -339,13 +340,51 @@ class AgGrid extends HTMLElement {
       );
     }
 
-    const res = await ajax({
-      apex,
-      ajaxId: this.ajaxId,
-      itemsToSubmit: this.itemsToSubmit,
-      regionId: this.regionId,
-      methods: [AJAX_COL_METADATA],
-    });
+    let res;
+
+    if (navigator.onLine) {
+      res = await ajax({
+        apex,
+        ajaxId: this.ajaxId,
+        itemsToSubmit: this.itemsToSubmit,
+        regionId: this.regionId,
+        methods: [AJAX_COL_METADATA],
+      });
+
+      if (IS_OFFLINE_MODE) {
+        window.hartenfeller_dev.plugins.sync_offline_data.regionStorage.mergeRegionData(
+          {
+            appId: parseInt(apex.env.APP_ID),
+            pageId: parseInt(apex.env.APP_PAGE_ID),
+            regionId: this.regionId,
+            dataKey: DATA_KEY_COLMETA,
+            regionDataJson: res.colMetaData,
+          }
+        );
+      }
+    } else if (IS_OFFLINE_MODE) {
+      const regionData =
+        await window.hartenfeller_dev.plugins.sync_offline_data.regionStorage.getRegionData(
+          {
+            appId: parseInt(apex.env.APP_ID),
+            pageId: parseInt(apex.env.APP_PAGE_ID),
+            regionId: this.regionId,
+            dataKey: DATA_KEY_COLMETA,
+          }
+        );
+
+      if (regionData) {
+        res = { colMetaData: regionData };
+      } else {
+        apex.debug.error(
+          `No internet connection and no column meta information found in offline storage.`
+        );
+      }
+    } else {
+      apex.debug.error(
+        `AG-Grid Plugin cannot load data for region #${this.regionId}. Reason: No internet connection.`
+      );
+    }
 
     this.gridOptions = this.#getGridOptions({
       colMetaData: res.colMetaData,
