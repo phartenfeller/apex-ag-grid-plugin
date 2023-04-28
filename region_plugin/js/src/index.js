@@ -69,6 +69,7 @@ class AgGrid extends HTMLElement {
     this.pageSize = parseInt(this.getAttribute('pageSize'));
 
     this.colFunctions = this.getAttribute('colFunctions') ?? {};
+    this.additionalSettings = this.getAttribute('additionalSettings') ?? {};
 
     this.contextMenuId = `${this.regionId}-context-menu`;
 
