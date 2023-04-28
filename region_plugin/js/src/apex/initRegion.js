@@ -32,6 +32,7 @@ function _initPlugin({
   focusOnLoad,
   displayRownum,
   pageSize,
+  additionalSettings,
 }) {
   apex.debug.info(
     `Init AG Grid plugin with params => ${JSON.stringify({
@@ -42,6 +43,7 @@ function _initPlugin({
       focusOnLoad,
       displayRownum,
       pageSize,
+      additionalSettings,
     })}`
   );
 
@@ -69,6 +71,7 @@ function _initPlugin({
   gridElement.pageSize = usedPageSize;
 
   gridElement.colFunctions = colFunctions[regionId];
+  gridElement.additionalSettings = additionalSettings;
 
   document
     .querySelector(`#${regionId}_component_wrapper`)

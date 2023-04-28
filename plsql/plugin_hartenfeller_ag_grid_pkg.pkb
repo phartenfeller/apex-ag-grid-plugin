@@ -155,6 +155,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
       apex_javascript.add_attribute( p_name => 'focusOnLoad', p_value => p_region.attribute_02 ) ||
       apex_javascript.add_attribute( p_name => 'displayRownum', p_value => p_region.attribute_03 ) ||
       apex_javascript.add_attribute( p_name => 'pageSize', p_value => p_region.attribute_04 ) ||
+      '"additionalSettings":'|| p_region.attribute_05 || ',' ||
       '})';
     
     apex_javascript.add_onload_code(p_code => l_onload_js);
