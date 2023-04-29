@@ -69,6 +69,7 @@ class AgGrid extends HTMLElement {
     this.pageSize = parseInt(this.getAttribute('pageSize'));
 
     this.colFunctions = this.getAttribute('colFunctions') ?? {};
+    /** @type any */
     this.additionalSettings = this.getAttribute('additionalSettings') ?? {};
 
     this.contextMenuId = `${this.regionId}-context-menu`;
@@ -86,6 +87,9 @@ class AgGrid extends HTMLElement {
     this.computedCols = [];
 
     this.firstEditCol = undefined;
+
+    // oflline
+    this.storageKey = '';
   }
 
   hasChanges() {
@@ -327,6 +331,7 @@ class AgGrid extends HTMLElement {
       IDX_COL,
       pkCol: this.pkCol,
       boolCols: this.boolCols,
+      storageKey: this.storageKey,
     });
     if (newRows?.length > 0 && insertRows) {
       this.#insertRows(newRows);
@@ -338,6 +343,30 @@ class AgGrid extends HTMLElement {
     if (!this.pkCol) {
       apex.debug.error(
         `AG-Grid Plugin: No primary key column provided for region #${this.regionId}`
+      );
+    }
+
+    if (IS_OFFLINE_MODE) {
+      if (
+        !this.additionalSettings?.offline ||
+        !this.additionalSettings?.offline?.storageId ||
+        !this.additionalSettings?.offline?.storageVersion
+      ) {
+        const message = `AG-Grid Plugin: Offline mode is enabled, but no offline settings are provided in additionalSettings: ${JSON.stringify(
+          this.additionalSettings
+        )}`;
+        apex.debug.error(message);
+        throw new Error(message);
+      }
+      const { storageId, storageVersion } = this.additionalSettings.offline;
+      this.storageKey =
+        window.hartenfeller_dev.plugins.sync_offline_data.getStorageKey({
+          storageId,
+          storageVersion,
+        });
+
+      await window.hartenfeller_dev.plugins.sync_offline_data.waitTillStorageReady(
+        { storageId, storageVersion }
       );
     }
 
@@ -364,7 +393,7 @@ class AgGrid extends HTMLElement {
         );
       }
     } else if (IS_OFFLINE_MODE) {
-      const regionData =
+      const { data } =
         await window.hartenfeller_dev.plugins.sync_offline_data.regionStorage.getRegionData(
           {
             appId: parseInt(apex.env.APP_ID),
@@ -374,8 +403,8 @@ class AgGrid extends HTMLElement {
           }
         );
 
-      if (regionData) {
-        res = { colMetaData: regionData };
+      if (data) {
+        res = { colMetaData: data };
       } else {
         apex.debug.error(
           `No internet connection and no column meta information found in offline storage.`
@@ -477,7 +506,12 @@ class AgGrid extends HTMLElement {
 
     apex.debug.info('Saving data', dataMap);
 
-    return { data: dataMap, pkCol: this.pkCol, pkIds };
+    return {
+      data: dataMap,
+      pkCol: this.pkCol,
+      pkIds,
+      storageKey: IS_OFFLINE_MODE ? this.storageKey : null,
+    };
   }
 
   #markRowDeleted(rowId) {

@@ -1,4 +1,5 @@
 import { ajax, AJAX_DATA } from './apex/ajax';
+import { IS_OFFLINE_MODE } from './constants';
 import { arrayNumToBool } from './util/boolConversions';
 
 let nextRow = 1;
@@ -15,6 +16,7 @@ async function fetchData({
   IDX_COL,
   pkCol,
   boolCols,
+  storageKey,
 }) {
   if (fetchedAllDbRows) {
     apex.debug.trace(`All rows fetched from oracle`);
@@ -30,49 +32,82 @@ async function fetchData({
   try {
     const firstRow = nextRow;
 
-    apex.debug.info(`Query from oracle from ${firstRow} #${amountOfRows} rows`);
+    if (!IS_OFFLINE_MODE) {
+      apex.debug.info(
+        `Query from oracle from ${firstRow} #${amountOfRows} rows`
+      );
 
-    const dataRes = await ajax({
-      apex,
-      ajaxId,
-      itemsToSubmit,
-      regionId,
-      methods: [AJAX_DATA],
-      firstRow,
-      amountOfRows,
-    });
+      const dataRes = await ajax({
+        apex,
+        ajaxId,
+        itemsToSubmit,
+        regionId,
+        methods: [AJAX_DATA],
+        firstRow,
+        amountOfRows,
+      });
 
-    if (dataRes.data) {
-      let { data } = dataRes;
-      for (let i = 0; i < data.length; i++) {
-        data[i][IDX_COL] = data[i][pkCol].toString();
+      if (dataRes.data) {
+        let { data } = dataRes;
+        for (let i = 0; i < data.length; i++) {
+          data[i][IDX_COL] = data[i][pkCol].toString();
+        }
+
+        nextRow = firstRow + data.length;
+        apex.debug.info(`next row is ${nextRow}`);
+
+        if (amountOfRows > data.length) {
+          apex.debug.info(
+            `Less received than requested from oracle => end reached`
+          );
+          fetchedAllDbRows = true;
+        }
+
+        if (boolCols.length > 0) {
+          apex.debug.info(`Converting bool cols (${boolCols.join(', ')})`);
+
+          data = arrayNumToBool(data, boolCols);
+        }
+
+        return data;
       }
+      apex.debug.error(
+        `Could not fetch data from region #${regionId}. Res => ${JSON.stringify(
+          dataRes
+        )}`
+      );
 
-      nextRow = firstRow + data.length;
-      apex.debug.info(`next row is ${nextRow}`);
-
-      if (amountOfRows > data.length) {
-        apex.debug.info(
-          `Less received than requested from oracle => end reached`
-        );
-        fetchedAllDbRows = true;
-      }
-
-      if (boolCols.length > 0) {
-        apex.debug.info(`Converting bool cols (${boolCols.join(', ')})`);
-
-        data = arrayNumToBool(data, boolCols);
-      }
-
-      return data;
+      return [];
     }
-    apex.debug.error(
-      `Could not fetch data from region #${regionId}. Res => ${JSON.stringify(
-        dataRes
-      )}`
+    apex.debug.info(
+      `Query from offline storage (${storageKey}): from ${firstRow} #${amountOfRows} rows`
     );
 
-    return [];
+    let data = await window.hartenfeller_dev.plugins.sync_offline_data.storages[
+      storageKey
+    ].getRows({ offset: firstRow - 1, maxRows: amountOfRows });
+
+    for (let i = 0; i < data.length; i++) {
+      data[i][IDX_COL] = data[i][pkCol].toString();
+    }
+
+    nextRow = firstRow + data.length;
+    apex.debug.info(`next row is ${nextRow}`);
+
+    if (amountOfRows > data.length) {
+      apex.debug.info(
+        `Less received than requested from oracle => end reached`
+      );
+      fetchedAllDbRows = true;
+    }
+
+    if (boolCols.length > 0) {
+      apex.debug.info(`Converting bool cols (${boolCols.join(', ')})`);
+
+      data = arrayNumToBool(data, boolCols);
+    }
+
+    return data;
   } catch (err) {
     apex.debug.error(
       `Error fetching data from region #${regionId}. Err => ${JSON.stringify(
