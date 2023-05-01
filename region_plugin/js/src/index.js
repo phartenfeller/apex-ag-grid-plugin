@@ -672,6 +672,7 @@ class AgGrid extends HTMLElement {
       return;
     }
     data[currColId] = clipboard;
+    data[ROW_ACITON] = 'U';
 
     this.gridOptions.api.applyTransaction({
       update: [data],
@@ -713,6 +714,7 @@ class AgGrid extends HTMLElement {
     this.gridOptions.api.getSelectedNodes().forEach((rowNode) => {
       const { data } = rowNode;
       data[colId] = clipboard;
+      data[ROW_ACITON] = 'U';
 
       this.changes.set(rowNode.id, data);
       changes.push(data);
