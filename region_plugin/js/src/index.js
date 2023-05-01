@@ -600,7 +600,10 @@ class AgGrid extends HTMLElement {
     }
     data[currColId] = clipboard;
 
-    rowNode.setData(data);
+    this.gridOptions.api.applyTransaction({
+      update: [data],
+    });
+    this.changes.set(currRowdId, data);
     clearCopyIndicator(this.regionId);
     markPaste(clickedColElement);
 
@@ -632,15 +635,23 @@ class AgGrid extends HTMLElement {
       return;
     }
 
+    const changes = [];
+
     this.gridOptions.api.getSelectedNodes().forEach((rowNode) => {
       const { data } = rowNode;
       data[colId] = clipboard;
-      rowNode.setData(data);
+
+      this.changes.set(rowNode.id, data);
+      changes.push(data);
 
       const element = this.regionElement.querySelector(
         `div[row-id="${rowNode.id}"] div[col-id="${colId}"]`
       );
       markPaste(element);
+    });
+
+    this.gridOptions.api.applyTransaction({
+      update: changes,
     });
 
     clearCopyIndicator(this.regionId);
