@@ -2,22 +2,22 @@
 # yarn lockfile v1
 
 
-"@ag-grid-community/client-side-row-model@^29.0.0":
-  version "29.0.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/client-side-row-model/-/client-side-row-model-29.0.0.tgz#dcb3fec92681b94d2bdd56f6c8eaeade2a53ba1e"
-  integrity sha512-e+/888QYu/k+UBD74Ke6+e4Fc8/gxXmkcgF7cM4+EB941YDZ9j+gIR6ltI29B8T2n63OwTGWqNkwSooh1ed1nw==
+"@ag-grid-community/client-side-row-model@29.2.0":
+  version "29.2.0"
+  resolved "https://registry.yarnpkg.com/@ag-grid-community/client-side-row-model/-/client-side-row-model-29.2.0.tgz#edb0184431c407ee7cca17d48c7e5bd2fa707919"
+  integrity sha512-GkLkwhGh1reV34MNuhv0it8M00/aV62Xjd/5qbMNan2oYZnEHOrn2I7OBDEHKHMjajWyV5lTOGTcKBmh/HXUMQ==
   dependencies:
-    "@ag-grid-community/core" "~29.0.0"
+    "@ag-grid-community/core" "~29.2.0"
 
-"@ag-grid-community/core@^29.0.0", "@ag-grid-community/core@~29.0.0":
-  version "29.0.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/core/-/core-29.0.0.tgz#b4ef6ac3c05d21e65f83e2c1ed46b1c2bac30f25"
-  integrity sha512-qj5H9tAZtikpjFL9f7VmJLPS8tx/PUfIjt5DPtqDA01GZ9dYt3XwPuHdLKzpA5E9Yevhwk1m+TXCCz5Al7WWSw==
+"@ag-grid-community/core@29.2.0", "@ag-grid-community/core@~29.2.0":
+  version "29.2.0"
+  resolved "https://registry.yarnpkg.com/@ag-grid-community/core/-/core-29.2.0.tgz#03a0f214448a64444b6a6d943f1c5962c4564c2c"
+  integrity sha512-1G0X3DrCCfH/vngBXz5rKRhlNmb/WPy/kTtfy/Yo+XOAChs+lgMGG/dgurY/blRyCaMQsUO3aZoJmcckYG4/eQ==
 
-"@ag-grid-community/styles@^29.0.0":
-  version "29.0.0"
-  resolved "https://registry.yarnpkg.com/@ag-grid-community/styles/-/styles-29.0.0.tgz#07c5013c090aa0cb425580240e6511f1c67cb2e5"
-  integrity sha512-Wl7q1IxhDjwfyPrnEvAT6m107Um/TaMyzJjWrRax9f30QTb7dVMTe6B5/JXq6HPbMrcvQfcAgS6TlpEsJGtVbg==
+"@ag-grid-community/styles@29.2.0":
+  version "29.2.0"
+  resolved "https://registry.yarnpkg.com/@ag-grid-community/styles/-/styles-29.2.0.tgz#41726bdf83e651658d5053f71a265ba4c44423c1"
+  integrity sha512-qvan0uD928VYSvprA7MUDjqtmUUc3gNgjcV25ylTmR9MfV9hHrJcEtMT3VRsnqvcBDccuXP1xOGx7FJYhdt4sw==
 
 "@discoveryjs/json-ext@^0.5.0":
   version "0.5.7"
