@@ -90,6 +90,7 @@ class AgGrid extends HTMLElement {
 
     // oflline
     this.storageKey = '';
+    this.whereClause = '';
   }
 
   hasChanges() {
@@ -332,6 +333,7 @@ class AgGrid extends HTMLElement {
       pkCol: this.pkCol,
       boolCols: this.boolCols,
       storageKey: this.storageKey,
+      whereClause: this.whereClause,
     });
     if (newRows?.length > 0 && insertRows) {
       this.#insertRows(newRows);
@@ -358,7 +360,9 @@ class AgGrid extends HTMLElement {
         apex.debug.error(message);
         throw new Error(message);
       }
-      const { storageId, storageVersion } = this.additionalSettings.offline;
+      const { storageId, storageVersion, whereClause } =
+        this.additionalSettings.offline;
+      this.whereClause = whereClause;
       this.storageKey =
         window.hartenfeller_dev.plugins.sync_offline_data.getStorageKey({
           storageId,

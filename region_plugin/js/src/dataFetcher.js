@@ -17,6 +17,7 @@ async function fetchData({
   pkCol,
   boolCols,
   storageKey,
+  whereClause,
 }) {
   if (fetchedAllDbRows) {
     apex.debug.trace(`All rows fetched from oracle`);
@@ -83,9 +84,12 @@ async function fetchData({
       `Query from offline storage (${storageKey}): from ${firstRow} #${amountOfRows} rows`
     );
 
-    let data = await window.hartenfeller_dev.plugins.sync_offline_data.storages[
-      storageKey
-    ].getRows({ offset: firstRow - 1, maxRows: amountOfRows });
+    const res =
+      await window.hartenfeller_dev.plugins.sync_offline_data.storages[
+        storageKey
+      ].getRows({ offset: firstRow - 1, maxRows: amountOfRows, whereClause });
+
+    let data = res.rows;
 
     for (let i = 0; i < data.length; i++) {
       data[i][IDX_COL] = data[i][pkCol].toString();
