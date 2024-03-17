@@ -7,7 +7,12 @@ let fetchedAllDbRows = false;
 
 let currentlyFetching = false;
 
-async function fetchData({
+export function resetDataFetcher() {
+  nextRow = 1;
+  fetchedAllDbRows = false;
+}
+
+export async function fetchData({
   apex,
   ajaxId,
   itemsToSubmit,
@@ -124,5 +129,3 @@ async function fetchData({
     currentlyFetching = false;
   }
 }
-
-export default fetchData;

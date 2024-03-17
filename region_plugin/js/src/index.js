@@ -1,7 +1,7 @@
 import { ajax, AJAX_COL_METADATA } from './apex/ajax';
 import './apex/initRegion';
 import { DATA_KEY_COLMETA, IS_OFFLINE_MODE } from './constants';
-import fetchData from './dataFetcher';
+import { fetchData, resetDataFetcher } from './dataFetcher';
 import components from './gui-components';
 import NoRowsOverlay from './gui-components/NoRowsOverlay';
 import AG_GRID from './initGrid';
@@ -851,6 +851,16 @@ class AgGrid extends HTMLElement {
   refresh() {
     this.changes.clear();
     this.originalState.clear();
+    resetDataFetcher();
+
+    const allCurrentRowData = [];
+    this.gridOptions.api.forEachNode((node) =>
+      allCurrentRowData.push(node.data)
+    );
+    this.gridOptions.api.applyTransaction({
+      remove: allCurrentRowData,
+    });
+    this.#fetchMoreRows();
   }
 
   saveSuccess() {
