@@ -1,7 +1,11 @@
 import { ajax, AJAX_COL_METADATA } from './apex/ajax';
 import './apex/initRegion';
 import { DATA_KEY_COLMETA, IS_OFFLINE_MODE } from './constants';
-import { fetchData, resetDataFetcher } from './dataFetcher';
+import {
+  fetchData,
+  fetchOfflineStorageData,
+  resetDataFetcher,
+} from './dataFetcher';
 import components from './gui-components';
 import NoRowsOverlay from './gui-components/NoRowsOverlay';
 import AG_GRID from './initGrid';
@@ -91,6 +95,7 @@ class AgGrid extends HTMLElement {
     // oflline
     this.storageKey = '';
     this.whereClause = '';
+    this.lovData = {};
   }
 
   hasChanges() {
@@ -270,6 +275,38 @@ class AgGrid extends HTMLElement {
         cellClasses.push('xag-read-only-cell');
 
         this.computedCols.push(col.colname);
+      } else if (col.grid_data_type === 'AUTOCOMPLETE') {
+        colDef.cellEditor = 'popupLovEditor';
+        // AutocompleteSelectCellEditor;
+        colDef.cellEditorPopup = true;
+
+        if (!this.lovData[col.colname]) {
+          apex.debug.error(`[offline-ag-grid] No LOV data for ${col.colname}.`);
+        }
+
+        colDef.cellEditorParams = {
+          lov: this.lovData[col.colname],
+          colId: col.colname,
+          regionId: this.regionId,
+        };
+        colDef.valueFormatter = (params) => {
+          apex.debug.trace(`AUTOCOMPLETE valueFormatter`, params);
+          if (params?.colDef?.cellEditorParams?.lov) {
+            const selected = params.colDef.cellEditorParams.lov.find(
+              (s) => s.value === params.value
+            );
+            return selected?.text ?? selected?.value ?? params.value;
+          }
+
+          apex.debug.warn(
+            `[offline-ag-grid] Autocomplete ${col.colname}: no lov in valueFormatter.`
+          );
+          return params.value;
+        };
+        colDef.editable = col.editable;
+        colDef.cellRendererParams = {
+          disabled: !col.editable, // disable checkbox if not editable
+        };
       }
 
       columnDefs.push(colDef);
@@ -344,7 +381,7 @@ class AgGrid extends HTMLElement {
   async #setupGrid() {
     if (!this.pkCol) {
       apex.debug.error(
-        `AG-Grid Plugin: No primary key column provided for region #${this.regionId}`
+        `[offline-ag-grid] No primary key column provided for region #${this.regionId}`
       );
     }
 
@@ -354,13 +391,13 @@ class AgGrid extends HTMLElement {
         !this.additionalSettings?.offline?.storageId ||
         !this.additionalSettings?.offline?.storageVersion
       ) {
-        const message = `AG-Grid Plugin: Offline mode is enabled, but no offline settings are provided in additionalSettings: ${JSON.stringify(
+        const message = `[offline-ag-grid] Offline mode is enabled, but no offline settings are provided in additionalSettings: ${JSON.stringify(
           this.additionalSettings
         )}`;
         apex.debug.error(message);
         throw new Error(message);
       }
-      const { storageId, storageVersion, whereClause } =
+      const { storageId, storageVersion, whereClause, colConfig } =
         this.additionalSettings.offline;
       this.whereClause = whereClause;
       this.storageKey =
@@ -372,6 +409,38 @@ class AgGrid extends HTMLElement {
       await window.hartenfeller_dev.plugins.sync_offline_data.waitTillStorageReady(
         { storageId, storageVersion }
       );
+
+      const promises = [];
+
+      Object.entries(colConfig).forEach(async ([key, value]) => {
+        if (
+          !value ||
+          !value.storageId ||
+          !value.storageVersion ||
+          !value.display
+        ) {
+          apex.debug.error(
+            `[offline-ag-grid] col config incomplete. Exptected "storageId", "storageVersion" and "display" but got: ${key}: ${JSON.stringify(
+              value
+            )}`
+          );
+        } else {
+          promises.push(
+            fetchOfflineStorageData({
+              storageId: value.storageId,
+              storageVersion: value.storageVersion,
+              display: value.display,
+            })
+          );
+        }
+      });
+
+      const res = await Promise.all(promises);
+      Object.entries(colConfig).forEach(([key], idx) => {
+        this.lovData[key] = res[idx];
+      });
+
+      apex.debug.trace('[offline-ag-grid] LOV data', this.lovData);
     }
 
     let res;

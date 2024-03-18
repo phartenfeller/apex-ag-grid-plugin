@@ -129,3 +129,43 @@ export async function fetchData({
     currentlyFetching = false;
   }
 }
+
+export async function fetchOfflineStorageData({
+  storageId,
+  storageVersion,
+  display,
+}) {
+  const storageKey =
+    window.hartenfeller_dev.plugins.sync_offline_data.getStorageKey({
+      storageId,
+      storageVersion,
+    });
+
+  await window.hartenfeller_dev.plugins.sync_offline_data.waitTillStorageReady({
+    storageId,
+    storageVersion,
+  });
+
+  const { pkCol } =
+    await window.hartenfeller_dev.plugins.sync_offline_data.storages[
+      storageKey
+    ].getColInfo();
+
+  const { rows } =
+    await window.hartenfeller_dev.plugins.sync_offline_data.storages[
+      storageKey
+    ].getRows({ maxRows: 9999 });
+
+  window.apex.debug.trace(
+    `[offline-ag-grid] fetchOfflineStorageData: Fetched ${rows.length} rows from offline storage ${storageKey}.`,
+    rows
+  );
+
+  return rows.map((r) => ({
+    text: window.hartenfeller_dev.plugins.sync_offline_data.evalRowString(
+      display,
+      r
+    ),
+    value: r[pkCol],
+  }));
+}

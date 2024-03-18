@@ -22,6 +22,7 @@
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^29.0.0",
     "@ag-grid-community/core": "^29.0.0",
-    "@ag-grid-community/styles": "^29.0.0"
+    "@ag-grid-community/styles": "^29.0.0",
+    "web-complete": "^1.3.2"
   }
 }

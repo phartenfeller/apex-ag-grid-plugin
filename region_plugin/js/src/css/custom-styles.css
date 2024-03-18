@@ -84,3 +84,31 @@
   background: var(--xag-pasted-background) !important;
   opacity: 50%;
 }
+
+.ag-cell-editor-autocomplete {
+  padding: 4px;
+  background: var(--ut-region-background-color);
+  box-shadow: var(--ut-shadow-md);
+  color: var(--ut-region-text-color);
+}
+
+web-complete .form-control {
+  font-size: 14px;
+  min-width: 32ch;
+  padding: 8px;
+}
+
+web-complete .dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: transparent;
+  padding: 3px;
+  color: var(--ut-component-text-default-color);
+  background: var(--a-gv-background-color, white);
+}
+
+web-complete .dropdown-item.active {
+  font-weight: bold;
+  background: var(--a-gv-row-hover-background-color, white);
+}
