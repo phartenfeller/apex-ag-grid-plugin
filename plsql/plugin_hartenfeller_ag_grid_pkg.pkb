@@ -13,6 +13,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
   , html_template         APEX_APPLICATION_PAGE_REG_COLS.attribute_05%type
   , max_col_width         APEX_APPLICATION_PAGE_REG_COLS.attribute_06%type
   , js_computed_val_code  APEX_APPLICATION_PAGE_REG_COLS.attribute_07%type
+  , default_value         APEX_APPLICATION_PAGE_REG_COLS.attribute_08%type
   );
 
   type tt_col_info is table of t_col_info;
@@ -41,6 +42,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
           , c.attribute_05 as html_template
           , c.attribute_06 as max_col_width
           , c.attribute_07 as js_computed_val_code
+          , c.attribute_08 as default_value
         bulk collect into l_col_info_query_tab
         from APEX_APPLICATION_PAGE_REGIONS r 
         join APEX_APPLICATION_PAGE_REG_COLS c
@@ -63,6 +65,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
           , c.attribute_05 as html_template
           , c.attribute_06 as max_col_width
           , c.attribute_07 as js_computed_val_code
+          , c.attribute_08 as default_value
         bulk collect into l_col_info_query_tab
         from APEX_APPLICATION_PAGE_REGIONS r 
         join APEX_APPLICATION_PAGE_REG_COLS c
@@ -220,6 +223,7 @@ create or replace package body plugin_hartenfeller_ag_grid_pkg as
         apex_json.write('value_alignment',l_col_info_query_tab(i).value_alignment); -- "value_alignment": "..."
         apex_json.write('htmlTemplate',l_col_info_query_tab(i).html_template); -- "value_alignment": "..."
         apex_json.write('maxColWidth',l_col_info_query_tab(i).max_col_width); -- "maxColWidth": "..."
+        apex_json.write('defaultValue',l_col_info_query_tab(i).default_value); -- "defaultValue": "..."
     
         if l_col_info_query_tab(i).js_computed_val_code is not null then
           apex_javascript.add_inline_code ( 

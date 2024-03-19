@@ -96,6 +96,7 @@ class AgGrid extends HTMLElement {
     this.storageKey = '';
     this.whereClause = '';
     this.lovData = {};
+    this.defaultValues = {};
   }
 
   hasChanges() {
@@ -114,7 +115,23 @@ class AgGrid extends HTMLElement {
 
   // eslint-disable-next-line class-methods-use-this
   #handleChange(event) {
-    const newData = event.data;
+    const pkVal = event.data[IDX_COL];
+
+    let newData = {};
+    let rowAction = 'U';
+    // Set ROW_ACITON
+    // !don't override insert or delete!
+    if (this.changes.has(pkVal)) {
+      newData = this.changes.get(pkVal);
+      window.apex.debug.info(
+        '[offline-ag-grid] Updating existing row',
+        newData
+      );
+      rowAction = newData[ROW_ACITON];
+    }
+
+    newData = { ...newData, ...event.data };
+    newData[ROW_ACITON] = rowAction;
     const { field } = event.colDef;
     const { oldValue, newValue } = event;
     const oldData = { ...newData };
@@ -124,16 +141,6 @@ class AgGrid extends HTMLElement {
       `onCellEditRequest, updating ${field} to ${newValue} - event => `,
       event
     );
-
-    const pkVal = newData[IDX_COL];
-
-    // Set ROW_ACITON
-    // !don't override insert or delete!
-    if (this.changes.has(pkVal)) {
-      newData[ROW_ACITON] = this.changes.get(pkVal)[ROW_ACITON];
-    } else {
-      newData[ROW_ACITON] = 'U';
-    }
 
     // add change to changes map
     this.changes.set(pkVal, newData);
@@ -307,6 +314,10 @@ class AgGrid extends HTMLElement {
         colDef.cellRendererParams = {
           disabled: !col.editable, // disable checkbox if not editable
         };
+      }
+
+      if (col.defaultValue) {
+        this.defaultValues[col.colname] = col.defaultValue;
       }
 
       columnDefs.push(colDef);
@@ -638,6 +649,15 @@ class AgGrid extends HTMLElement {
     const newRow = this.#createRow();
 
     newRow[ROW_ACITON] = 'C';
+
+    const defValues = Object.entries(this.defaultValues);
+    defValues.forEach(([col, val]) => {
+      newRow[col] =
+        window.hartenfeller_dev.plugins.sync_offline_data.evalPageItems(val);
+    });
+
+    window.apex.debug.trace('[offline-ag-grid] Adding new row', newRow);
+
     this.changes.set(newRow[IDX_COL], newRow);
 
     let node;
