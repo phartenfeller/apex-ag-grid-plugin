@@ -44,4 +44,5 @@ module.exports = {
     },
     allowedHosts: ['localhost', '.phartenfeller.de'],
   },
+  target: 'browserslist',
 };

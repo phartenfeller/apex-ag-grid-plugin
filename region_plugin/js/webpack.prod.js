@@ -34,10 +34,20 @@ module.exports = (env) => {
         new TerserPlugin({ test: /\.min\.js$/ }),
         new CssMinimizerPlugin({ test: /\.min\.css$/ }),
       ],
+      splitChunks: {
+        // Disable chunk splitting
+        chunks: 'async',
+        cacheGroups: {
+          default: false,
+          vendors: false,
+        },
+      },
+      runtimeChunk: false, // Disable runtime chunk
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: '[name].js',
     },
+    target: 'browserslist',
   };
 };
